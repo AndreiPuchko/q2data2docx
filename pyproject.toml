@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "q2data2docx"
+version = "0.1.0"
+description = ""
+authors = ["Andrei Puchko <andrei.puchko@gmx.de>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+
+[tool.poetry.group.dev.dependencies]
+flake8 = "^6.1.0"
+black = "^23.7.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

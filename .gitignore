@@ -1,0 +1,11 @@
+*.pyc
+*.spec
+__pycache__
+temp
+log
+build
+dist
+q2gui.ini
+*.sqlite
+q2apps.sqlite
+*.sh
