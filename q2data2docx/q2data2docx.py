@@ -81,19 +81,19 @@ def excelDataFormat(cellText, formatStr):
 
     formatStr = formatStr.replace('"', "")
 
-    cellText = datetime.fromordinal(
-        datetime(1900, 1, 1).toordinal() + int(N(cellText)) - 2
-    ).strftime(formatStr)
+    cellText = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + int(N(cellText)) - 2).strftime(
+        formatStr
+    )
     return cellText
 
 
 def merge(file1, file2, outputFile):
-    d2d = data2doc()
+    d2d = q2data2docx()
     for x in [file1, file2]:
         if not d2d.loadFile(x):
             print(f"Input file not found: {x}")
             return False
-    if d2d.data2doc():
+    if d2d.merge():
         outputFile = d2d.checkOutputFileName(outputFile)
         if d2d.saveFile(outputFile):
             print(f"Processing finished. See result in {outputFile}")
@@ -105,7 +105,7 @@ def merge(file1, file2, outputFile):
     return False
 
 
-class data2doc:
+class q2data2docx:
     def __init__(self, dataDic={}, docxTemplateBinary="", xlsxBinary="", jsonBinary=""):
 
         self.error = ""
@@ -134,7 +134,9 @@ class data2doc:
             ".json": self.loadJsonFile,
             ".docx": self.loadDocxFile,
             ".xlsx": self.loadXlsxFile,
-        }.get(os.path.splitext(fileName)[1].lower(), lambda x: None)(fileName)
+        }.get(
+            os.path.splitext(fileName)[1].lower(), lambda x: None
+        )(fileName)
 
     # prepare excel data
     def loadXlsxFile(self, fileIn):
@@ -201,12 +203,8 @@ class data2doc:
                             else:
                                 if st.text:  # if any text
                                     sheetRow[colLetter] = st.text
-                                    formatStr = numFmts.get(
-                                        cellXfs.get(cell.attrib.get("s"), ""), ""
-                                    )
-                                    sheetRow[colLetter] = self.setNmFmt(
-                                        sheetRow[colLetter], formatStr
-                                    )
+                                    formatStr = numFmts.get(cellXfs.get(cell.attrib.get("s"), ""), "")
+                                    sheetRow[colLetter] = self.setNmFmt(sheetRow[colLetter], formatStr)
                         if sheetRow[colLetter] == "":
                             del sheetRow[colLetter]
                     if sheetRow != {}:
@@ -219,9 +217,7 @@ class data2doc:
         sheetNames = {}
         for child in ET.fromstring(xlsxZip.open("xl/_rels/workbook.xml.rels").read()):
             if child.attrib["Type"].endswith("/worksheet"):
-                sheetNames[os.path.basename(child.attrib["Target"])] = child.attrib[
-                    "Id"
-                ]
+                sheetNames[os.path.basename(child.attrib["Target"])] = child.attrib["Id"]
         return sheetNames
 
     def extractFormats(self, xlsxZip):
@@ -235,9 +231,7 @@ class data2doc:
                     fCo += 1
             if child.tag.endswith("numFmts"):
                 for numFmt in child:
-                    numFmts[numFmt.attrib.get("numFmtId", "")] = numFmt.attrib.get(
-                        "formatCode", ""
-                    )
+                    numFmts[numFmt.attrib.get("numFmtId", "")] = numFmt.attrib.get("formatCode", "")
         numFmts.update(BUILTIN_FORMATS)
         return cellXfs, numFmts
 
@@ -274,9 +268,9 @@ class data2doc:
         elif "m" in formatStr and "y" in formatStr and "y" in formatStr:
             cellText = excelDataFormat(cellText, formatStr)
         elif re.match(r"m/d/yyyy", formatStr):
-            cellText = datetime.fromordinal(
-                datetime(1900, 1, 1).toordinal() + int(N(cellText)) - 2
-            ).strftime("%m/%d/%Y")
+            cellText = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + int(N(cellText)) - 2).strftime(
+                "%m/%d/%Y"
+            )
         elif re.match(r"0\.0*", formatStr):
             cellText = ("{:.%sf}" % len(formatStr.split(".")[1])).format(N(cellText))
         return cellText
@@ -306,9 +300,7 @@ class data2doc:
         if isinstance(self.dataDic, dict):
             for x in self.dataDic:
                 if isinstance(self.dataDic[x], list):
-                    self.dataDic[x] = {
-                        y: self.dataDic[x][y] for y in range(len(self.dataDic[x]))
-                    }
+                    self.dataDic[x] = {y: self.dataDic[x][y] for y in range(len(self.dataDic[x]))}
                 elif not isinstance(self.dataDic[x], dict):
                     del self.dataDic[x]
         else:
@@ -334,7 +326,7 @@ class data2doc:
             if not fileOut:
                 fileOut = fileIn.replace(".docx", "_out.docx")
             self.setDocxTemplateBinary(open(fileIn, "rb").read())
-            if self.data2doc():
+            if self.merge():
                 open(fileOut, "wb").write(self.docxResultBinary)
 
     def cleanPar(self, parList):  # clean paragraph dummy tags
@@ -358,7 +350,7 @@ class data2doc:
                 rez.append(x)
         return "".join(rez)
 
-    def data2doc(self):
+    def merge(self):
         if self.docxTemplateBinary is None:
             self.error = "Template not found or not loaded"
             return False
@@ -368,13 +360,7 @@ class data2doc:
         docxZip = ZipFile(memzip)
         if "word/document.xml" not in docxZip.namelist():
             return None
-        dxDoc = (
-            docxZip.open("word/document.xml")
-            .read()
-            .decode("utf-8")
-            .replace("\n", "")
-            .replace("\t", "")
-        )
+        dxDoc = docxZip.open("word/document.xml").read().decode("utf-8").replace("\n", "").replace("\t", "")
         dxDocList = []
         dxBinary = []
         parList = []
@@ -476,9 +462,7 @@ class data2doc:
                 )
                 gg = ET.fromstring(f"""<r {xmlns}>{parXml}</r>""")
                 parText = (
-                    ("".join([x.text for x in gg.findall("./{ww}p/{ww}r/{ww}t")]))
-                    .replace("#@#", "")
-                    .strip()
+                    ("".join([x.text for x in gg.findall("./{ww}p/{ww}r/{ww}t")])).replace("#@#", "").strip()
                 )
                 if parText == "":
                     dxDoc = dxDoc.replace(parXml, "")
@@ -490,19 +474,13 @@ class data2doc:
         for y in dxDoc.split("</w:t>"):
             y = y.split("<w:t")[-1].split(">")[-1]
             for x in re.findall(r"#\s*(\w*).([a-zA-Z]*)(\d*)\s*#", y):
-                colRowData = (
-                    self.dataDic.get(x[0], {}).get(int(N(x[2])), {}).get(x[1], "")
-                )
+                colRowData = self.dataDic.get(x[0], {}).get(int(N(x[2])), {}).get(x[1], "")
                 if colRowData:
-                    dxDoc = dxDoc.replace(
-                        "#{}.{}{}#".format(x[0], x[1], x[2]), colRowData
-                    )
+                    dxDoc = dxDoc.replace("#{}.{}{}#".format(x[0], x[1], x[2]), colRowData)
         # remove other unused tags
         dxDoc = re.sub(r"#(\s*[^#]+\s*)#", "", dxDoc)
         if "</w:tbl><w:sectPr>" in dxDoc:  # fix last row at the end of docs
-            dxDoc = dxDoc.replace(
-                "</w:tbl><w:sectPr>", """</w:tbl><w:p></w:p><w:sectPr>"""
-            )
+            dxDoc = dxDoc.replace("</w:tbl><w:sectPr>", """</w:tbl><w:p></w:p><w:sectPr>""")
         if "</w:tbl></w:tc>" in dxDoc:  # fix last row at the end of docs
             dxDoc = dxDoc.replace("</w:tbl></w:tc>", """</w:tbl><w:p></w:p></w:tc>""")
         dxDoc = dxDoc.replace("\n", "")
@@ -527,9 +505,9 @@ class data2doc:
         while tag in xml:
             snippet = ""
             tag1_pos = xml.index(tag)
-            tableProps = xml[
-                tag1_pos + 1 : xml[tag1_pos + 1 :].index("#") + tag1_pos + 1
-            ].replace(tableName, "")
+            tableProps = xml[tag1_pos + 1 : xml[tag1_pos + 1 :].index("#") + tag1_pos + 1].replace(
+                tableName, ""
+            )
             if tag in xml[tag1_pos + 1 :]:
                 tag2_pos = xml.index(tag, len(tag) + tag1_pos) + len(tag) + 1
                 snippet = xml[tag1_pos:tag2_pos]
@@ -543,12 +521,8 @@ class data2doc:
 
     def getTableParams(self, tableSnippet, tableName):
         tmpTPList = (tableSnippet["tableProps"][1:]).split(":")
-        tmpTPList = tmpTPList + (
-            [""] * (4 - len(tmpTPList)) if len(tmpTPList) < 4 else []
-        )
-        (columnNamesRow, startRow, endRow) = [
-            int(x) if x.isdigit() else 0 for x in tmpTPList[:3]
-        ]
+        tmpTPList = tmpTPList + ([""] * (4 - len(tmpTPList)) if len(tmpTPList) < 4 else [])
+        (columnNamesRow, startRow, endRow) = [int(x) if x.isdigit() else 0 for x in tmpTPList[:3]]
         if self.jsonBinary:
             columnNamesRow = 0
         filterRow = tmpTPList[3]
