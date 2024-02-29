@@ -225,7 +225,6 @@ class q2data2docx:
                         self.check4char(sheetRow)
                         self.dataDic[sheetName][rowNumber] = sheetRow
                         self.xlsxRowsCount += 1
-        # print (self.dataDic)
 
     def extractSheetNames(self, xlsxZip):
         sheetNames = {}
@@ -315,7 +314,9 @@ class q2data2docx:
             for x in self.dataDic:
                 if isinstance(self.dataDic[x], list):
                     self.dataDic[x] = {y: self.dataDic[x][y] for y in range(len(self.dataDic[x]))}
-                elif not isinstance(self.dataDic[x], dict):
+                elif isinstance(self.dataDic[x], dict):
+                    self.dataDic[x] = {int(y): self.dataDic[x][y] for y in self.dataDic[x]}
+                else:
                     del self.dataDic[x]
         else:
             self.dataDic = {}

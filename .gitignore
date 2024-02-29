@@ -10,3 +10,4 @@ q2gui.ini
 q2apps.sqlite
 *.sh
 .vscode/*
+test-result/*
