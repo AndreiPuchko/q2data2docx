@@ -16,8 +16,10 @@ import glob
 import re
 import json
 import html
+import subprocess
 from io import BytesIO
 import os
+import sys
 import xml.etree.ElementTree as ET
 from zipfile import ZipFile, ZIP_DEFLATED
 from decimal import Decimal
@@ -321,6 +323,9 @@ class q2data2docx:
         else:
             self.dataDic = {}
 
+    def setDataDic(self, dataDic):
+        self.dataDic = dataDic
+
     # prepare template
     def loadDocxFile(self, fileIn=""):
         if glob.glob(fileIn):
@@ -560,15 +565,43 @@ class q2data2docx:
     def checkOutputFileName(self, fileName=""):
         if not fileName.lower().endswith(".docx"):
             fileName += ".docx"
+
+        if not os.path.isdir(os.path.dirname(fileName)):
+            os.mkdir(os.path.dirname(fileName))
+        co = 0
+        name, ext = os.path.splitext(fileName)
+        while True:
+            lockfile = f"{os.path.dirname(fileName)}/.~lock.{os.path.basename(fileName)}#"
+            if os.path.isfile(lockfile):
+                co += 1
+                fileName = f"{name}{co:03d}{ext}"
+            else:
+                break
         return fileName
 
-    def saveFile(self, fileOut=""):
+    def saveFile(self, fileOut="", open_output_file=True):
         fileOut = self.checkOutputFileName(fileOut)
         try:
             open(fileOut, "wb").write(self.docxResultBinary)
-            return True
         except Exception:
             return False
+        if open_output_file:
+            q2data2docx.open_document(fileOut)
+        return True
+
+    @staticmethod
+    def open_document(file_name):
+        if os.path.isfile(file_name):
+            if sys.platform == "win32":
+                subprocess.Popen(
+                    ["start", os.path.abspath(file_name)],
+                    close_fds=True,
+                    shell=True,
+                    creationflags=subprocess.DETACHED_PROCESS,
+                )
+            else:
+                opener = "open" if sys.platform == "darwin" else "xdg-open"
+                subprocess.Popen([opener, file_name], close_fds=True, shell=False)
 
     def setTestData(self):
         self.dataDic = {
