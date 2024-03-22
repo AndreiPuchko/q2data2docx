@@ -318,8 +318,6 @@ class q2data2docx:
                     self.dataDic[x] = {y: self.dataDic[x][y] for y in range(len(self.dataDic[x]))}
                 elif isinstance(self.dataDic[x], dict):
                     self.dataDic[x] = {int(y): self.dataDic[x][y] for y in self.dataDic[x]}
-                else:
-                    del self.dataDic[x]
         else:
             self.dataDic = {}
 
@@ -370,11 +368,10 @@ class q2data2docx:
                 rez.append(x)
         return "".join(rez)
 
-    def merge(self):
+    def prepareDocxTemplate(self):
         if self.docxTemplateBinary is None:
             self.error = "Template not found or not loaded"
             return False
-        tableTags2clean = []
         memzip = BytesIO()
         memzip.write(self.docxTemplateBinary)
         docxZip = ZipFile(memzip)
@@ -402,7 +399,13 @@ class q2data2docx:
                     dxBinary.append(x)
                     x = "<@%s@>" % (len(dxBinary) - 1)
                 dxDocList.append(x)
-        dxDoc = "".join(dxDocList)
+        return "".join(dxDocList), dxBinary, docxZip
+
+    def merge(self):
+        dxDoc, dxBinary, docxZip = self.prepareDocxTemplate()
+        if not dxDoc:
+            return
+        tableTags2clean = []
         # обработка таблиц
         for tableName in self.dataDic:
             if not isinstance(self.dataDic[tableName], dict):
@@ -449,9 +452,16 @@ class q2data2docx:
             for z in range(len(docxRowXml)):
                 dxDoc = dxDoc.replace(docxRowXml[z]["snippet"], "".join(docxRows[z]))
         # processing non table data
-        for dataKey in self.dataDic:
+        for dataKey, dataValue in self.dataDic.items():
             if not isinstance(self.dataDic[dataKey], dict):
-                dxDoc = dxDoc.replace("#%s#" % dataKey, self.dataDic[dataKey])
+                dxDoc = dxDoc.replace("#%s#" % dataKey, dataValue)
+        # process first sheet as non table data
+        first_sheet = self.dataDic[list(self.dataDic.keys())[0]]
+        for cell_key, cell_value in {
+            f"{key}{row_key}": value for row_key in first_sheet for key, value in first_sheet[row_key].items()
+        }.items():
+            if not isinstance(cell_value, dict):
+                dxDoc = dxDoc.replace("#%s#" % cell_key, cell_value)
         # remove datatables tags first
         # replace table names to #@#
         for x in tableTags2clean:
@@ -617,10 +627,11 @@ class q2data2docx:
 if __name__ == "__main__":
     testSourceFolder = f"{os.path.dirname(__file__)}/../test-data/test01/"
     testResultFolder = f"{os.path.dirname(__file__)}/../test-result"
-
+    result_file = os.path.abspath(f"{testResultFolder}/test-result.docx")
     if merge(
         f"{testSourceFolder}test.docx",
         f"{testSourceFolder}test.xlsx",
-        f"{testResultFolder}/test-result",
+        result_file,
     ):
+        os.system(f"explorer {result_file}")
         print("Ok")
