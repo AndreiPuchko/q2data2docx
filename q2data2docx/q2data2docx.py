@@ -320,6 +320,10 @@ class q2data2docx:
                     self.dataDic[x] = {int(y): self.dataDic[x][y] for y in self.dataDic[x]}
         else:
             self.dataDic = {}
+        self.prepareData(self.dataDic)
+
+    def prepareData(self, dataDic):
+        pass
 
     def setDataDic(self, dataDic):
         self.dataDic = dataDic
@@ -451,17 +455,19 @@ class q2data2docx:
                     docxRows[y].append(tmpDocxXml)
             for z in range(len(docxRowXml)):
                 dxDoc = dxDoc.replace(docxRowXml[z]["snippet"], "".join(docxRows[z]))
+
         # processing non table data
         for dataKey, dataValue in self.dataDic.items():
             if not isinstance(self.dataDic[dataKey], dict):
                 dxDoc = dxDoc.replace("#%s#" % dataKey, dataValue)
         # process first sheet as non table data
         first_sheet = self.dataDic[list(self.dataDic.keys())[0]]
-        for cell_key, cell_value in {
-            f"{key}{row_key}": value for row_key in first_sheet for key, value in first_sheet[row_key].items()
-        }.items():
-            if not isinstance(cell_value, dict):
-                dxDoc = dxDoc.replace("#%s#" % cell_key, cell_value)
+        if isinstance(first_sheet, dict):
+            for cell_key, cell_value in {
+                f"{key}{row_key}": value for row_key in first_sheet for key, value in first_sheet[row_key].items()
+            }.items():
+                if not isinstance(cell_value, dict):
+                    dxDoc = dxDoc.replace("#%s#" % cell_key, cell_value)
         # remove datatables tags first
         # replace table names to #@#
         for x in tableTags2clean:
