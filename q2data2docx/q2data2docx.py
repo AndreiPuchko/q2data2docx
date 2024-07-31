@@ -509,7 +509,7 @@ class q2data2docx:
         # replace absolute links to table.colLetterRowNumber
         for y in dxDoc.split("</w:t>"):
             y = y.split("<w:t")[-1].split(">")[-1]
-            for x in re.findall(r"#\s*(\w*).([a-zA-Z]*)(\d*)\s*#", y):
+            for x in re.findall(r"#\s*(\w*)\.([a-zA-Z]*)(\d*)\s*#", y):
                 colRowData = self.dataDic.get(x[0], {}).get(int(N(x[2])), {}).get(x[1], "")
                 if colRowData:
                     dxDoc = dxDoc.replace("#{}.{}{}#".format(x[0], x[1], x[2]), colRowData)
@@ -587,12 +587,20 @@ class q2data2docx:
         co = 0
         name, ext = os.path.splitext(fileName)
         while True:
-            lockfile = f"{os.path.dirname(fileName)}/.~lock.{os.path.basename(fileName)}#"
-            if os.path.isfile(lockfile):
-                co += 1
-                fileName = f"{name}{co:03d}{ext}"
-            else:
-                break
+            if os.path.isfile(fileName):
+                try:
+                    os.remove(fileName)
+                except Exception as e:
+                    co += 1
+                    fileName = f"{name}{co:03d}{ext}"
+                    continue
+            break
+            # lockfile = f"{os.path.dirname(fileName)}/.~lock.{os.path.basename(fileName)}#"
+            # if os.path.isfile(lockfile):
+            #     co += 1
+            #     fileName = f"{name}{co:03d}{ext}"
+            # else:
+            #     break
         return fileName
 
     def saveFile(self, fileOut="", open_output_file=True):
