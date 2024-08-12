@@ -67,7 +67,7 @@ BUILTIN_FORMATS = {
 
 def N(t):
     try:
-        return Decimal("%s" % t)
+        return Decimal(f"{t}")
     except Exception:
         return 0
 
@@ -242,7 +242,7 @@ class q2data2docx:
             if child.tag.endswith("cellXfs"):
                 fCo = 0
                 for xf in child:
-                    cellXfs["%s" % fCo] = xf.attrib.get("numFmtId", "")
+                    cellXfs[f"{fCo}"] = xf.attrib.get("numFmtId", "")
                     fCo += 1
             if child.tag.endswith("numFmts"):
                 for numFmt in child:
@@ -394,14 +394,14 @@ class q2data2docx:
                     dCount = parXml.count("#")
                     if dCount == 0 or dCount % 2 == 1:  # no or bad template paragraph
                         dxBinary.append(parXml)
-                        dxDocList.append("<@%s@>" % (len(dxBinary) - 1))
+                        dxDocList.append(f"<@{(len(dxBinary) - 1)}@>")
                     else:  # template-prepare paragraph
                         dxDocList.append(self.cleanPar(parList))
                     parList = []
             else:
                 if "#" in x:
                     dxBinary.append(x)
-                    x = "<@%s@>" % (len(dxBinary) - 1)
+                    x = f"<@{(len(dxBinary) - 1)}@>"
                 dxDocList.append(x)
         return "".join(dxDocList), dxBinary, docxZip
 
@@ -449,7 +449,7 @@ class q2data2docx:
                     for columnName in row:
                         row[columnName] = html.escape(row[columnName])
                         tmpDocxXml = tmpDocxXml.replace(
-                            "#%s#" % columnNamesProxy.get(columnName, columnName),
+                            f"#{columnNamesProxy.get(columnName, columnName)}#",
                             row[columnName],
                         )
                     docxRows[y].append(tmpDocxXml)
@@ -458,8 +458,10 @@ class q2data2docx:
 
         # processing non table data
         for dataKey, dataValue in self.dataDic.items():
+            if dataKey == "":
+                continue
             if not isinstance(self.dataDic[dataKey], dict):
-                dxDoc = dxDoc.replace("#%s#" % dataKey, dataValue)
+                dxDoc = dxDoc.replace(f"#{dataKey}#" , dataValue)
         # process first sheet as non table data
         first_sheet = self.dataDic[list(self.dataDic.keys())[0]]
         if isinstance(first_sheet, dict):
@@ -467,7 +469,7 @@ class q2data2docx:
                 f"{key}{row_key}": value for row_key in first_sheet for key, value in first_sheet[row_key].items()
             }.items():
                 if not isinstance(cell_value, dict):
-                    dxDoc = dxDoc.replace("#%s#" % cell_key, cell_value)
+                    dxDoc = dxDoc.replace(f"#{cell_key}#", cell_value)
         # remove datatables tags first
         # replace table names to #@#
         for x in tableTags2clean:
@@ -488,7 +490,7 @@ class q2data2docx:
                 parXml = dxDoc[parStart : parEnd + 6]
                 xmlns = "".join(
                     [
-                        """xmlns:%s="%s%s" """ % (x, x, x)
+                        f"""xmlns:{x}="{x}{x}" """
                         for x in {
                             x.translate("".maketrans("", "", "</: "))
                             for x in re.findall(r"\W(\w*):", parXml)
@@ -522,7 +524,7 @@ class q2data2docx:
         dxDoc = dxDoc.replace("\n", "")
         # put back binary data
         for x in range(len(dxBinary)):
-            dxDoc = dxDoc.replace("<@%s@>" % x, dxBinary[x])
+            dxDoc = dxDoc.replace(f"<@{x}@>", dxBinary[x])
         # create result file as binary
         outmemzip = BytesIO()
         newZip = ZipFile(outmemzip, "w", ZIP_DEFLATED)
@@ -536,7 +538,7 @@ class q2data2docx:
         return True
 
     def getSnippetRow(self, xml, tableName):
-        tag = "#%s" % tableName
+        tag = f"#{tableName}"
         rez = []
         while tag in xml:
             snippet = ""
