@@ -417,9 +417,9 @@ class q2data2docx:
             # process snippets
             docxRowXml = self.getSnippetRow(dxDoc, tableName)
             docxRows = []
-            for y in range(len(docxRowXml)):
-                tableTags2clean.append(docxRowXml[y]['start_tag'])
-                tableTags2clean.append(docxRowXml[y]['end_tag'])
+            for y, docxRowXml_value in enumerate(docxRowXml):
+                tableTags2clean.append(docxRowXml_value['start_tag'])
+                tableTags2clean.append(docxRowXml_value['end_tag'])
                 docxRows.append([])
                 # process datatable rows
                 (
@@ -429,7 +429,7 @@ class q2data2docx:
                     filterRow,
                     rowEval,
                     columnNamesProxy,
-                ) = self.getTableParams(docxRowXml[y], tableName)
+                ) = self.getTableParams(docxRowXml_value, tableName)
                 for rowCount in range(1, max(self.dataDic[tableName]) + 1):
                     row = self.dataDic[tableName].get(rowCount)
                     if not row:
@@ -442,7 +442,7 @@ class q2data2docx:
                         rowEval.setData(row, columnNamesProxy)
                         if not eval(filterRow, {}, rowEval):
                             continue
-                    tmpDocxXml = docxRowXml[y]["snippet"]
+                    tmpDocxXml = docxRowXml_value["snippet"]
                     # process datatable column:  x:column name
                     for columnName in row:
                         row[columnName] = html.escape(row[columnName])
@@ -451,8 +451,8 @@ class q2data2docx:
                             row[columnName],
                         )
                     docxRows[y].append(tmpDocxXml)
-            for z in range(len(docxRowXml)):
-                dxDoc = dxDoc.replace(docxRowXml[z]["snippet"], "".join(docxRows[z]))
+            for z, value in enumerate(docxRowXml):
+                dxDoc = dxDoc.replace(value["snippet"], "".join(docxRows[z]))
 
         # processing non table data
         for dataKey, dataValue in self.dataDic.items():
@@ -523,8 +523,8 @@ class q2data2docx:
             dxDoc = dxDoc.replace("</w:tbl></w:tc>", """</w:tbl><w:p></w:p></w:tc>""")
         dxDoc = dxDoc.replace("\n", "")
         # put back binary data
-        for x in range(len(dxBinary)):
-            dxDoc = dxDoc.replace(f"<@{x}@>", dxBinary[x])
+        for x, value in enumerate(dxBinary):
+            dxDoc = dxDoc.replace(f"<@{x}@>", value)
         # create result file as binary
         outmemzip = BytesIO()
         newZip = ZipFile(outmemzip, "w", ZIP_DEFLATED)
