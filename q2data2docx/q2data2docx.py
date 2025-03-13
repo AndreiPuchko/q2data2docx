@@ -387,7 +387,7 @@ class q2data2docx:
         parList = []
         # remove intag formats
         for x in [x for x in re.split(r"(<[^<]+>)", dxDoc) if x != ""]:
-            if x == "<w:p>" or x.startswith("<w:p ") or parList:  # collecting paragaph
+            if (x == "<w:p>" or x.startswith("<w:p ") or parList) and x not in ["##"]:  # collecting paragaph
                 parList.append(x)
                 if x == "</w:p>":  # end of paragraph
                     parXml = "".join(parList)
@@ -410,18 +410,16 @@ class q2data2docx:
         if not dxDoc:
             return
         tableTags2clean = []
-        # обработка таблиц
+        # table processing
         for tableName in self.dataDic:
             if not isinstance(self.dataDic[tableName], dict):
-                continue
-            if f"#{tableName}#" not in dxDoc:
                 continue
             # process snippets
             docxRowXml = self.getSnippetRow(dxDoc, tableName)
             docxRows = []
             for y in range(len(docxRowXml)):
-                tableTags2clean.append(f"#{tableName}{docxRowXml[y]['tableProps']}#")
-                tableTags2clean.append(f"#{tableName}#")
+                tableTags2clean.append(docxRowXml[y]['start_tag'])
+                tableTags2clean.append(docxRowXml[y]['end_tag'])
                 docxRows.append([])
                 # process datatable rows
                 (
@@ -461,12 +459,14 @@ class q2data2docx:
             if dataKey == "":
                 continue
             if not isinstance(self.dataDic[dataKey], dict):
-                dxDoc = dxDoc.replace(f"#{dataKey}#" , dataValue)
+                dxDoc = dxDoc.replace(f"#{dataKey}#", dataValue)
         # process first sheet as non table data
         first_sheet = self.dataDic[list(self.dataDic.keys())[0]]
         if isinstance(first_sheet, dict):
             for cell_key, cell_value in {
-                f"{key}{row_key}": value for row_key in first_sheet for key, value in first_sheet[row_key].items()
+                f"{key}{row_key}": value
+                for row_key in first_sheet
+                for key, value in first_sheet[row_key].items()
             }.items():
                 if not isinstance(cell_value, dict):
                     dxDoc = dxDoc.replace(f"#{cell_key}#", cell_value)
@@ -538,23 +538,30 @@ class q2data2docx:
         return True
 
     def getSnippetRow(self, xml, tableName):
-        tag = f"#{tableName}"
         rez = []
-        while tag in xml:
+        table_pattern = r"#\s*" + tableName + r"(?!\.)"
+        while True:
+            matches = list(re.finditer(table_pattern, xml))
+            if len(matches) < 2:
+                break
             snippet = ""
-            tag1_pos = xml.index(tag)
+            tag1_pos = matches[0].start()
             tableProps = xml[tag1_pos + 1 : xml[tag1_pos + 1 :].index("#") + tag1_pos + 1].replace(
                 tableName, ""
             )
-            if tag in xml[tag1_pos + 1 :]:
-                tag2_pos = xml.index(tag, len(tag) + tag1_pos) + len(tag) + 1
-                snippet = xml[tag1_pos:tag2_pos]
-                if "<w:tbl>" in snippet and "</w:tbl>" not in snippet:
-                    snippet = ""
-            if snippet:
-                rez.append({"snippet": snippet, "tableProps": tableProps})
-                tag1_pos = tag2_pos
-            xml = xml[(tag1_pos + 1) :]
+            tag2_pos = matches[1].start()
+            tag2_pos += xml[tag2_pos + 1 :].index("#") + 2
+            snippet = xml[tag1_pos:tag2_pos]
+            if not ("<w:tbl>" in snippet and "</w:tbl>" not in snippet):
+                rez.append(
+                    {
+                        "snippet": snippet,
+                        "tableProps": tableProps,
+                        "start_tag": xml[tag1_pos : tag1_pos + xml[tag1_pos + 1 :].index("#") + 2],
+                        "end_tag": xml[matches[1].start() : tag2_pos],
+                    }
+                )
+            xml = xml[(tag2_pos + 1) :]
         return rez
 
     def getTableParams(self, tableSnippet, tableName):
@@ -641,7 +648,7 @@ class q2data2docx:
 
 
 if __name__ == "__main__":
-    testSourceFolder = f"{os.path.dirname(__file__)}/../test-data/test01/"
+    testSourceFolder = f"{os.path.dirname(__file__)}/../test-data/test02/"
     testResultFolder = f"{os.path.dirname(__file__)}/../test-result"
     result_file = os.path.abspath(f"{testResultFolder}/test-result.docx")
     if merge(
