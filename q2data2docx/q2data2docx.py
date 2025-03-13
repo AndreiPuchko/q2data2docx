@@ -418,8 +418,8 @@ class q2data2docx:
             docxRowXml = self.getSnippetRow(dxDoc, tableName)
             docxRows = []
             for y, docxRowXml_value in enumerate(docxRowXml):
-                tableTags2clean.append(docxRowXml_value['start_tag'])
-                tableTags2clean.append(docxRowXml_value['end_tag'])
+                tableTags2clean.append(docxRowXml_value["start_tag"])
+                tableTags2clean.append(docxRowXml_value["end_tag"])
                 docxRows.append([])
                 # process datatable rows
                 (
@@ -446,10 +446,8 @@ class q2data2docx:
                     # process datatable column:  x:column name
                     for columnName in row:
                         row[columnName] = html.escape(row[columnName])
-                        tmpDocxXml = tmpDocxXml.replace(
-                            f"#{columnNamesProxy.get(columnName, columnName)}#",
-                            row[columnName],
-                        )
+                        re_pattern = r"#\s*" + columnNamesProxy.get(columnName, columnName) + r"\s*#"
+                        tmpDocxXml = re.sub(re_pattern, row[columnName], tmpDocxXml)
                     docxRows[y].append(tmpDocxXml)
             for z, value in enumerate(docxRowXml):
                 dxDoc = dxDoc.replace(value["snippet"], "".join(docxRows[z]))
