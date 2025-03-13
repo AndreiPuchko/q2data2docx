@@ -121,6 +121,10 @@ def merge(file1, file2, outputFile):
     return False
 
 
+def get_re_pattern(text):
+    return r"#\s*" + text + r"\s*#"
+
+
 class q2data2docx:
     def __init__(self, dataDic={}, docxTemplateBinary="", xlsxBinary="", jsonBinary=""):
 
@@ -446,8 +450,11 @@ class q2data2docx:
                     # process datatable column:  x:column name
                     for columnName in row:
                         row[columnName] = html.escape(row[columnName])
-                        re_pattern = r"#\s*" + columnNamesProxy.get(columnName, columnName) + r"\s*#"
-                        tmpDocxXml = re.sub(re_pattern, row[columnName], tmpDocxXml)
+                        tmpDocxXml = re.sub(
+                            get_re_pattern(columnNamesProxy.get(columnName, columnName)),
+                            row[columnName],
+                            tmpDocxXml,
+                        )
                     docxRows[y].append(tmpDocxXml)
             for z, value in enumerate(docxRowXml):
                 dxDoc = dxDoc.replace(value["snippet"], "".join(docxRows[z]))
@@ -512,7 +519,12 @@ class q2data2docx:
             for x in re.findall(r"#\s*(\w*)\.([a-zA-Z]*)(\d*)\s*#", y):
                 colRowData = self.dataDic.get(x[0], {}).get(int(N(x[2])), {}).get(x[1], "")
                 if colRowData:
-                    dxDoc = dxDoc.replace("#{}.{}{}#".format(x[0], x[1], x[2]), colRowData)
+                    dxDoc = re.sub(
+                        get_re_pattern(x[0] + r"\s*" + "." + r"\s*" + x[1] + r"\s*" + x[2]),
+                        colRowData,
+                        dxDoc,
+                    )
+
         # remove other unused tags
         dxDoc = re.sub(r"#(\s*[^#]+\s*)#", "", dxDoc)
         if "</w:tbl><w:sectPr>" in dxDoc:  # fix last row at the end of docs
