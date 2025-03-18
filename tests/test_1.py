@@ -18,7 +18,6 @@ test_input_xlsx_filename = f"{test_data_folder}test.xlsx"
 def test_merge():
 
     result = q2data2docx.merge(test_input_docx_filename, test_input_xlsx_filename, test_result_file_name)
-
     assert result is True
 
 

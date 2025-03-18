@@ -458,13 +458,16 @@ class q2data2docx:
                     docxRows[y].append(tmpDocxXml)
             for z, value in enumerate(docxRowXml):
                 dxDoc = dxDoc.replace(value["snippet"], "".join(docxRows[z]))
-
         # processing non table data
         for dataKey, dataValue in self.dataDic.items():
             if dataKey == "":
                 continue
             if not isinstance(self.dataDic[dataKey], dict):
-                dxDoc = dxDoc.replace(f"#{dataKey}#", dataValue)
+                dxDoc = re.sub(
+                    get_re_pattern(dataKey),
+                    dataValue,
+                    dxDoc,
+                )
         # process first sheet as non table data
         first_sheet = self.dataDic[list(self.dataDic.keys())[0]]
         if isinstance(first_sheet, dict):
@@ -474,7 +477,11 @@ class q2data2docx:
                 for key, value in first_sheet[row_key].items()
             }.items():
                 if not isinstance(cell_value, dict):
-                    dxDoc = dxDoc.replace(f"#{cell_key}#", cell_value)
+                    dxDoc = re.sub(
+                        get_re_pattern(cell_key),
+                        cell_value,
+                        dxDoc,
+                    )
         # remove datatables tags first
         # replace table names to #@#
         for x in tableTags2clean:
@@ -499,7 +506,7 @@ class q2data2docx:
                         for x in {
                             x.translate("".maketrans("", "", "</: "))
                             for x in re.findall(r"\W(\w*):", parXml)
-                            if x != "xml"
+                            if x != "xml" and x != ""
                         }
                     ]
                 )
@@ -526,6 +533,7 @@ class q2data2docx:
                     )
 
         # remove other unused tags
+        dxDoc = dxDoc.replace("##", "")
         dxDoc = re.sub(r"#(\s*[^#]+\s*)#", "", dxDoc)
         if "</w:tbl><w:sectPr>" in dxDoc:  # fix last row at the end of docs
             dxDoc = dxDoc.replace("</w:tbl><w:sectPr>", """</w:tbl><w:p></w:p><w:sectPr>""")
@@ -658,7 +666,7 @@ class q2data2docx:
 
 
 if __name__ == "__main__":
-    testSourceFolder = f"{os.path.dirname(__file__)}/../test-data/test02/"
+    testSourceFolder = f"{os.path.dirname(__file__)}/../test-data/test04/"
     testResultFolder = f"{os.path.dirname(__file__)}/../test-result"
     result_file = os.path.abspath(f"{testResultFolder}/test-result.docx")
     if merge(
