@@ -65,6 +65,9 @@ BUILTIN_FORMATS = {
 }
 
 
+FIRST_SHEET_CELLS_LIMIT = 500
+
+
 def N(t):
     try:
         return Decimal(f"{t}")
@@ -471,17 +474,16 @@ class q2data2docx:
         # process first sheet as non table data
         first_sheet = self.dataDic[list(self.dataDic.keys())[0]]
         if isinstance(first_sheet, dict):
-            for cell_key, cell_value in {
+            data_sheet = {
                 f"{key}{row_key}": value
                 for row_key in first_sheet
                 for key, value in first_sheet[row_key].items()
+            }
+            for cell_key, cell_value in {
+                k: data_sheet[k] for k in list(data_sheet)[:FIRST_SHEET_CELLS_LIMIT]
             }.items():
                 if not isinstance(cell_value, dict):
-                    dxDoc = re.sub(
-                        get_re_pattern(cell_key),
-                        cell_value,
-                        dxDoc,
-                    )
+                    dxDoc = dxDoc.replace(f"#{cell_key}#", cell_value)
         # remove datatables tags first
         # replace table names to #@#
         for x in tableTags2clean:
