@@ -128,6 +128,38 @@ def get_re_pattern(text):
     return r"#\s*" + text + r"\s*#"
 
 
+re_search = re.compile(r"^x\d+;")
+re_sharp = re.compile(r"#(?!(?:(?!&#x).)*;)")
+
+
+def remove_hash_fragments(text):
+    result = []
+    splited_text = text.split("#")
+    cutted = False
+    for index, value in enumerate(splited_text):
+        if index == 0:
+            result.append(value)
+        elif index == len(splited_text) - 1:
+            if value == "":
+                result.append("#")
+            else:
+                result.append(value)
+        elif cutted:
+            result.append(value)
+            if splited_text[index + 1][-1] == "&":
+                result.append("#")
+        elif re_search.search(value) and splited_text[index - 1][-1] == "&":
+            result.append("#" + value)
+        elif value[-1] == "&" and re_search.search(splited_text[index + 1]):
+            result.append(value)
+        else:
+            cutted = True
+            continue
+        cutted = False
+
+    return "".join(result)
+
+
 class q2data2docx:
     def __init__(self, dataDic={}, docxTemplateBinary="", xlsxBinary="", jsonBinary=""):
 
@@ -280,6 +312,8 @@ class q2data2docx:
         for x in row:
             if "&" in row[x]:
                 row[x] = html.escape(row[x])
+            if "#" in row[x]:
+                row[x] = re_sharp.sub("&#x23;", row[x])
 
     def setNmFmt(self, cellText, formatStr):
         if formatStr not in self.usedFormatStrings:
@@ -452,7 +486,7 @@ class q2data2docx:
                     tmpDocxXml = docxRowXml_value["snippet"]
                     # process datatable column:  x:column name
                     for columnName in row:
-                        row[columnName] = html.escape(row[columnName])
+                        # row[columnName] = html.escape(row[columnName])
                         tmpDocxXml = re.sub(
                             get_re_pattern(columnNamesProxy.get(columnName, columnName)),
                             row[columnName],
@@ -536,7 +570,9 @@ class q2data2docx:
 
         # remove other unused tags
         dxDoc = dxDoc.replace("##", "")
-        dxDoc = re.sub(r"#(\s*[^#]+\s*)#", "", dxDoc)
+        # dxDoc = re.sub(r"#(\s*[^#]+\s*)#", "", dxDoc)
+        dxDoc = remove_hash_fragments(dxDoc)
+        dxDoc = dxDoc.replace("&#x23;", "#")
         if "</w:tbl><w:sectPr>" in dxDoc:  # fix last row at the end of docs
             dxDoc = dxDoc.replace("</w:tbl><w:sectPr>", """</w:tbl><w:p></w:p><w:sectPr>""")
         if "</w:tbl></w:tc>" in dxDoc:  # fix last row at the end of docs
@@ -668,7 +704,7 @@ class q2data2docx:
 
 
 if __name__ == "__main__":
-    testSourceFolder = f"{os.path.dirname(__file__)}/../test-data/test04/"
+    testSourceFolder = f"{os.path.dirname(__file__)}/../test-data/test03/"
     testResultFolder = f"{os.path.dirname(__file__)}/../test-result"
     result_file = os.path.abspath(f"{testResultFolder}/test-result.docx")
     if merge(
