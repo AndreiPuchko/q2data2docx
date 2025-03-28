@@ -11,3 +11,4 @@ q2apps.sqlite
 *.sh
 .vscode/*
 test-result/*
+test-data/*

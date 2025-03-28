@@ -24,6 +24,7 @@ import xml.etree.ElementTree as ET
 from zipfile import ZipFile, ZIP_DEFLATED
 from decimal import Decimal
 from datetime import datetime
+import logging
 
 BUILTIN_FORMATS = {
     0: "General",
@@ -68,25 +69,44 @@ BUILTIN_FORMATS = {
 FIRST_SHEET_CELLS_LIMIT = 500
 
 
-def N(t):
+WHITE_LIST = ["abs", "min", "max", "len", "round"]
+
+
+def _num(t):
     try:
         return Decimal(f"{t}")
     except Exception:
         return 0
 
 
-class rowEvaluator:
-    def __init__(self):
-        pass
-
-    def setData(self, row, proxy):
-        self.row = row.copy()
-        self.row["N"] = N
-        self.proxy = {proxy[x]: x for x in proxy}
-        self.proxy["N"] = "N"
-
+class defdict(dict):
     def __getitem__(self, key):
-        return self.row.get(self.proxy.get(key, key), "")
+        if key not in self:
+            return ""
+        return super().__getitem__(key)
+
+
+def my_eval(compiledCode, rawCode, data_dict):
+    data_dict["_num"] = _num
+
+    # data_dict = {key: value for key, value in data_dict.items() if key not in dir(__builtins__)}
+    for key in data_dict:
+        if key in dir(__builtins__):
+            del data_dict[key]
+
+    if [
+        x
+        for x in compiledCode.co_names
+        if x.startswith("__") or (x not in WHITE_LIST and x not in data_dict and x in dir(__builtins__))
+    ]:
+        logging.warning(f"Whilelist rule broken:'{rawCode}'")
+        return False
+
+    try:
+        return eval(compiledCode, data_dict)
+    except Exception as e:
+        logging.warning(f"Evaluation error in expression '{rawCode}': {e}")
+        return False
 
 
 def excelDataFormat(cellText, formatStr):
@@ -100,7 +120,7 @@ def excelDataFormat(cellText, formatStr):
 
     formatStr = formatStr.replace('"', "")
 
-    cellText = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + int(N(cellText)) - 2).strftime(
+    cellText = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + int(_num(cellText)) - 2).strftime(
         formatStr
     )
     return cellText
@@ -128,8 +148,9 @@ def get_re_pattern(text):
     return r"#\s*" + text + r"\s*#"
 
 
-re_search = re.compile(r"^x\d+;")
+re_search_html_char = re.compile(r"^x\d+;")
 re_sharp = re.compile(r"#(?!(?:(?!&#x).)*;)")
+re_get_keys = re.compile(r"#[^#]+#")
 
 
 def remove_hash_fragments(text):
@@ -148,9 +169,9 @@ def remove_hash_fragments(text):
             result.append(value)
             if splited_text[index + 1][-1] == "&":
                 result.append("#")
-        elif re_search.search(value) and splited_text[index - 1][-1] == "&":
+        elif re_search_html_char.search(value) and splited_text[index - 1][-1] == "&":
             result.append("#" + value)
-        elif value[-1] == "&" and re_search.search(splited_text[index + 1]):
+        elif value[-1] == "&" and re_search_html_char.search(splited_text[index + 1]):
             result.append(value)
         else:
             cutted = True
@@ -161,7 +182,7 @@ def remove_hash_fragments(text):
 
 
 class q2data2docx:
-    def __init__(self, dataDic={}, docxTemplateBinary="", xlsxBinary="", jsonBinary=""):
+    def __init__(self, dataDic={}, docxTemplateBinary="", xlsxBinary="", jsonBinary="", dataRowLimit=0):
 
         self.error = ""
         self.xlsxBinary = None
@@ -175,7 +196,7 @@ class q2data2docx:
 
         self.docxSizeLimit = 0
         self.xlsxSizeLimit = 0
-        self.xlsxRowLimit = 0
+        self.dataRowLimit = dataRowLimit
         self.xlsxSheetLimit = 0
 
         self.setJsonBinary(jsonBinary)
@@ -183,6 +204,9 @@ class q2data2docx:
         self.setXlsxBinary(xlsxBinary)
 
         self.docxResultBinary = ""
+
+    def setDataRowLimit(self, dataRowLimit=100):
+        self.dataRowLimit = dataRowLimit
 
     def loadFile(self, fileName):
         return {
@@ -246,7 +270,7 @@ class q2data2docx:
                 if not child.tag.endswith("sheetData"):
                     continue
                 for row in child:
-                    rowNumber = int(N(row.attrib["r"]))
+                    rowNumber = int(_num(row.attrib["r"]))
                     sheetRow = {}
                     for cell in row:
                         colLetter = re.sub(r"\d", "", cell.attrib["r"])
@@ -266,6 +290,8 @@ class q2data2docx:
                         self.check4char(sheetRow)
                         self.dataDic[sheetName][rowNumber] = sheetRow
                         self.xlsxRowsCount += 1
+                    if self.dataRowLimit and self.xlsxRowsCount > self.dataRowLimit:
+                        break
 
     def extractSheetNames(self, xlsxZip):
         sheetNames = {}
@@ -320,15 +346,15 @@ class q2data2docx:
             self.usedFormatStrings[formatStr] = cellText
         if re.match(r"0\.0*E\+00", formatStr):  # scientific
             ln = len(re.sub(r"0\.|E\+00", "", formatStr))
-            cellText = ("{:.%sE}" % ln).format(N(cellText))
+            cellText = ("{:.%sE}" % ln).format(_num(cellText))
         elif "m" in formatStr and "y" in formatStr and "y" in formatStr:
             cellText = excelDataFormat(cellText, formatStr)
         elif re.match(r"m/d/yyyy", formatStr):
-            cellText = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + int(N(cellText)) - 2).strftime(
-                "%m/%d/%Y"
-            )
+            cellText = datetime.fromordinal(
+                datetime(1900, 1, 1).toordinal() + int(_num(cellText)) - 2
+            ).strftime("%m/%d/%Y")
         elif re.match(r"0\.0*", formatStr):
-            cellText = ("{:.%sf}" % len(formatStr.split(".")[1])).format(N(cellText))
+            cellText = ("{:.%sf}" % len(formatStr.split(".")[1])).format(_num(cellText))
         return cellText
 
     # prepare json data
@@ -467,31 +493,36 @@ class q2data2docx:
                     startRow,
                     columnNamesRow,
                     endRow,
-                    filterRow,
-                    rowEval,
+                    compiledFilterRow,
+                    rawFilterRow,
                     columnNamesProxy,
                 ) = self.getTableParams(docxRowXml_value, tableName)
+
+                docDataField = re_get_keys.findall(
+                    docxRowXml_value["snippet"][
+                        len(docxRowXml_value["start_tag"]) : -len(docxRowXml_value["end_tag"])
+                    ]
+                )
+
                 for rowCount in range(1, max(self.dataDic[tableName]) + 1):
-                    row = self.dataDic[tableName].get(rowCount)
-                    if not row:
-                        continue
                     if startRow and rowCount < startRow or rowCount == columnNamesRow:
                         continue
                     if endRow and rowCount > endRow:
                         break
-                    if filterRow:
-                        rowEval.setData(row, columnNamesProxy)
-                        if not eval(filterRow, {}, rowEval):
+                    row = defdict(self.dataDic[tableName].get(rowCount, {}))
+                    if not row:
+                        continue
+
+                    row.update({columnNamesProxy[x]: row.get(x, "") for x in columnNamesProxy})
+
+                    if compiledFilterRow:
+                        if not my_eval(compiledFilterRow, rawFilterRow, row):
                             continue
                     tmpDocxXml = docxRowXml_value["snippet"]
                     # process datatable column:  x:column name
-                    for columnName in row:
-                        # row[columnName] = html.escape(row[columnName])
-                        tmpDocxXml = re.sub(
-                            get_re_pattern(columnNamesProxy.get(columnName, columnName)),
-                            row[columnName],
-                            tmpDocxXml,
-                        )
+                    for columnName in docDataField:
+                        tmpDocxXml = tmpDocxXml.replace(columnName, row[columnName.replace("#", "").strip()])
+
                     docxRows[y].append(tmpDocxXml)
             for z, value in enumerate(docxRowXml):
                 dxDoc = dxDoc.replace(value["snippet"], "".join(docxRows[z]))
@@ -560,7 +591,7 @@ class q2data2docx:
         for y in dxDoc.split("</w:t>"):
             y = y.split("<w:t")[-1].split(">")[-1]
             for x in re.findall(r"#\s*(\w*)\.([a-zA-Z]*)(\d*)\s*#", y):
-                colRowData = self.dataDic.get(x[0], {}).get(int(N(x[2])), {}).get(x[1], "")
+                colRowData = self.dataDic.get(x[0], {}).get(int(_num(x[2])), {}).get(x[1], "")
                 if colRowData:
                     dxDoc = re.sub(
                         get_re_pattern(x[0] + r"\s*" + "." + r"\s*" + x[1] + r"\s*" + x[2]),
@@ -622,25 +653,39 @@ class q2data2docx:
 
     def getTableParams(self, tableSnippet, tableName):
         tmpTPList = (tableSnippet["tableProps"][1:]).split(":")
+        if len(tmpTPList) > 4:
+            tmpTPList[3] += ":" + ":".join(tmpTPList[4:])
         tmpTPList = tmpTPList + ([""] * (4 - len(tmpTPList)) if len(tmpTPList) < 4 else [])
         (columnNamesRow, startRow, endRow) = [int(x) if x.isdigit() else 0 for x in tmpTPList[:3]]
         if self.jsonBinary:
             columnNamesRow = 0
-        filterRow = tmpTPList[3]
         if columnNamesRow != 0:
             columnNamesProxy = self.dataDic[tableName][columnNamesRow]
         else:
             columnNamesProxy = {}
-        rowEval = None
-        if filterRow:
-            filterRow = html.unescape(filterRow)
+        rawFilterRow = tmpTPList[3]
+        compiledFilterRow = None
+        if len(rawFilterRow) > 200:
+            logging.warning(f"Filter row is too long: ({rawFilterRow})")
+        elif rawFilterRow:
+            rawFilterRow = html.unescape(rawFilterRow)
             try:
-                filterRow = re.sub(r"([^=!\<\>])(=)([^=])", r"\1\2\2\3", filterRow)
-                filterRow = compile(filterRow, "", "eval")
-                rowEval = rowEvaluator()
-            except Exception:
-                filterRow = None
-        return startRow, columnNamesRow, endRow, filterRow, rowEval, columnNamesProxy
+                compiledFilterRow = re.sub(r"([^=!\<\>])(=)([^=])", r"\1\2\2\3", rawFilterRow)
+                compiledFilterRow = (
+                    compiledFilterRow.replace("‘", "'").replace("’", "'").replace("“", '"').replace("”", '"')
+                )
+                compiledFilterRow = compile(compiledFilterRow, "", "eval")
+                if [
+                    x
+                    for x in compiledFilterRow.co_names
+                    if x.startswith("__") or (x not in WHITE_LIST and x in dir(__builtins__))
+                ]:
+                    logging.warning(f"Filter row compile error: {e} ({rawFilterRow})")
+                    compiledFilterRow = None
+            except Exception as e:
+                logging.warning(f"Filter row compile error: {e} ({rawFilterRow})")
+
+        return startRow, columnNamesRow, endRow, compiledFilterRow, rawFilterRow, columnNamesProxy
 
     # save resust to file
     def checkOutputFileName(self, fileName=""):
@@ -704,13 +749,17 @@ class q2data2docx:
 
 
 if __name__ == "__main__":
-    testSourceFolder = f"{os.path.dirname(__file__)}/../test-data/test03/"
+    testSourceFolder = f"{os.path.dirname(__file__)}/../test-data/test01/"
     testResultFolder = f"{os.path.dirname(__file__)}/../test-result"
     result_file = os.path.abspath(f"{testResultFolder}/test-result.docx")
+    import time
+
+    t = time.time()
     if merge(
         f"{testSourceFolder}test.docx",
         f"{testSourceFolder}test.xlsx",
         result_file,
     ):
+        print(time.time() - t)
         os.system(f"explorer {result_file}")
         print("Ok")
