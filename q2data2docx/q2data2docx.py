@@ -79,7 +79,7 @@ def _num(t):
         return 0
 
 
-class defdict(dict):
+class DefDict(dict):
     def __getitem__(self, key):
         if key not in self:
             return ""
@@ -182,7 +182,15 @@ def remove_hash_fragments(text):
 
 
 class q2data2docx:
-    def __init__(self, dataDic={}, docxTemplateBinary="", xlsxBinary="", jsonBinary="", dataRowLimit=0):
+    def __init__(
+        self,
+        dataDic={},
+        docxTemplateBinary="",
+        xlsxBinary="",
+        jsonBinary="",
+        dataRowLimit=0,
+        dataSectionLimit=0,
+    ):
 
         self.error = ""
         self.xlsxBinary = None
@@ -192,11 +200,15 @@ class q2data2docx:
 
         self.usedFormatStrings = {}
 
-        self.xlsxRowsCount = 0
+        self.dataRowsCount = 0
+        self.dataSectionCount = 0
 
         self.docxSizeLimit = 0
         self.xlsxSizeLimit = 0
+
         self.dataRowLimit = dataRowLimit
+        self.dataSectionLimit = dataSectionLimit
+
         self.xlsxSheetLimit = 0
 
         self.setJsonBinary(jsonBinary)
@@ -207,6 +219,9 @@ class q2data2docx:
 
     def setDataRowLimit(self, dataRowLimit=100):
         self.dataRowLimit = dataRowLimit
+
+    def setDataSectionLimit(self, dataSectionLimit=100):
+        self.dataSectionLimit = dataSectionLimit
 
     def loadFile(self, fileName):
         return {
@@ -240,7 +255,7 @@ class q2data2docx:
     def xlsxBinary2dataDic(self):
         if not self.xlsxBinary:
             return
-        self.xlsxRowsCount = 0
+        self.dataRowsCount = 0
 
         memzip = BytesIO()
         memzip.write(self.xlsxBinary)
@@ -289,8 +304,8 @@ class q2data2docx:
                     if sheetRow != {}:
                         self.check4char(sheetRow)
                         self.dataDic[sheetName][rowNumber] = sheetRow
-                        self.xlsxRowsCount += 1
-                    if self.dataRowLimit and self.xlsxRowsCount > self.dataRowLimit:
+                        self.dataRowsCount += 1
+                    if self.dataRowLimit and self.dataRowsCount > self.dataRowLimit:
                         break
 
     def extractSheetNames(self, xlsxZip):
@@ -473,6 +488,7 @@ class q2data2docx:
         return "".join(dxDocList), dxBinary, docxZip
 
     def merge(self):
+        self.dataSectionCount = 0
         dxDoc, dxBinary, docxZip = self.prepareDocxTemplate()
         if not dxDoc:
             return
@@ -485,6 +501,9 @@ class q2data2docx:
             docxRowXml = self.getSnippetRow(dxDoc, tableName)
             docxRows = []
             for y, docxRowXml_value in enumerate(docxRowXml):
+                self.dataSectionCount += 1
+                if self.dataSectionLimit and self.dataSectionCount > self.dataSectionLimit:
+                    break
                 tableTags2clean.append(docxRowXml_value["start_tag"])
                 tableTags2clean.append(docxRowXml_value["end_tag"])
                 docxRows.append([])
@@ -509,7 +528,7 @@ class q2data2docx:
                         continue
                     if endRow and rowCount > endRow:
                         break
-                    row = defdict(self.dataDic[tableName].get(rowCount, {}))
+                    row = DefDict(self.dataDic[tableName].get(rowCount, {}))
                     if not row:
                         continue
 
@@ -525,7 +544,8 @@ class q2data2docx:
 
                     docxRows[y].append(tmpDocxXml)
             for z, value in enumerate(docxRowXml):
-                dxDoc = dxDoc.replace(value["snippet"], "".join(docxRows[z]))
+                if docxRows:
+                    dxDoc = dxDoc.replace(value["snippet"], "".join(docxRows[z]))
         # processing non table data
         for dataKey, dataValue in self.dataDic.items():
             if dataKey == "":
