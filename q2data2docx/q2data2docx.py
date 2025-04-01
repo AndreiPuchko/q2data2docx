@@ -209,6 +209,8 @@ class q2data2docx:
         self.dataRowLimit = dataRowLimit
         self.dataSectionLimit = dataSectionLimit
 
+        self.rawFilterRowLimit = 200
+
         self.xlsxSheetLimit = 0
 
         self.setJsonBinary(jsonBinary)
@@ -222,6 +224,15 @@ class q2data2docx:
 
     def setDataSectionLimit(self, dataSectionLimit=100):
         self.dataSectionLimit = dataSectionLimit
+
+    def setDocxSizeLimit(self, sizeLimit):
+        self.docxSizeLimit = sizeLimit
+
+    def setXlsxSizeLimit(self, sizeLimit):
+        self.xlsxSizeLimit = sizeLimit
+
+    def setКawFilterRowLimit(self, rawFilterRowLimit):
+        self.rawFilterRowLimit = rawFilterRowLimit
 
     def loadFile(self, fileName):
         return {
@@ -247,6 +258,8 @@ class q2data2docx:
             return False
 
     def setXlsxBinary(self, xlsxBinary=None):
+        if self.xlsxSizeLimit > 0 and (fileSize := len(xlsxBinary)) > self.xlsxSizeLimit:
+            raise ValueError(f"Daata file size limit exceeded: {fileSize} bytes > {self.xlsxSizeLimit}")
         self.jsonBinary = ""
         if xlsxBinary:
             self.xlsxBinary = xlsxBinary
@@ -382,11 +395,13 @@ class q2data2docx:
                 return False
             if binJson:
                 self.setJsonBinary(binJson)
-            return True
-        else:
-            return False
+                return True
+        return False
 
     def setJsonBinary(self, jsonBinary=None):
+        if self.xlsxSizeLimit > 0 and (fileSize := len(jsonBinary)) > self.xlsxSizeLimit:
+            raise ValueError(f"Data file size limit exceeded: {fileSize} bytes > {self.xlsxSizeLimit}")
+
         self.xlsxBinary = ""
         if jsonBinary:
             self.jsonBinary = jsonBinary
@@ -414,24 +429,20 @@ class q2data2docx:
     def loadDocxFile(self, fileIn=""):
         if glob.glob(fileIn):
             try:
-                self.setDocxTemplateBinary(open(fileIn, "rb").read())
+                binDocx = open(fileIn, "rb").read()
             except Exception:
                 return False
-            return True
-        else:
-            return False
+            if binDocx:
+                self.setDocxTemplateBinary(binDocx)
+                return True
+        return False
 
     def setDocxTemplateBinary(self, docxTemplateBinary=None):
+        if self.docxSizeLimit > 0 and (fileSize := len(docxTemplateBinary)) > self.docxSizeLimit:
+            raise ValueError(f"Template file size limit exceeded: {fileSize} bytes > {self.docxSizeLimit}")
+
         if docxTemplateBinary:
             self.docxTemplateBinary = docxTemplateBinary
-
-    def processFile(self, fileIn="", fileOut=""):
-        if glob.glob(fileIn):
-            if not fileOut:
-                fileOut = fileIn.replace(".docx", "_out.docx")
-            self.setDocxTemplateBinary(open(fileIn, "rb").read())
-            if self.merge():
-                open(fileOut, "wb").write(self.docxResultBinary)
 
     def cleanPar(self, parList):  # clean paragraph dummy tags
         rez = []
@@ -457,12 +468,20 @@ class q2data2docx:
     def prepareDocxTemplate(self):
         if self.docxTemplateBinary is None:
             self.error = "Template not found or not loaded"
-            return False
+            return (
+                False,
+                False,
+                False,
+            )
         memzip = BytesIO()
         memzip.write(self.docxTemplateBinary)
         docxZip = ZipFile(memzip)
         if "word/document.xml" not in docxZip.namelist():
-            return None
+            return (
+                False,
+                False,
+                False,
+            )
         dxDoc = docxZip.open("word/document.xml").read().decode("utf-8").replace("\n", "").replace("\t", "")
         dxDocList = []
         dxBinary = []
@@ -679,14 +698,14 @@ class q2data2docx:
         (columnNamesRow, startRow, endRow) = [int(x) if x.isdigit() else 0 for x in tmpTPList[:3]]
         if self.jsonBinary:
             columnNamesRow = 0
-        if columnNamesRow != 0:
+        if columnNamesRow != 0 and columnNamesRow in self.dataDic[tableName]:
             columnNamesProxy = self.dataDic[tableName][columnNamesRow]
         else:
             columnNamesProxy = {}
         rawFilterRow = tmpTPList[3]
         compiledFilterRow = None
-        if len(rawFilterRow) > 200:
-            logging.warning(f"Filter row is too long: ({rawFilterRow})")
+        if len(rawFilterRow) > self.rawFilterRowLimit:
+            logging.warning(f"Filter row is too long, skipped: ({rawFilterRow})")
         elif rawFilterRow:
             rawFilterRow = html.unescape(rawFilterRow)
             try:

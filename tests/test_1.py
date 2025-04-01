@@ -7,12 +7,10 @@ test_data_folder = "test-data/"
 
 def get_test_set():
     for folder in os.listdir(test_data_folder):
-        if folder:
-            test_input_docx_filename = f"{test_data_folder}/{folder}/test.docx"
-            test_input_xlsx_filename = f"{test_data_folder}/{folder}/test.xlsx"
-            test_result_file_name = f"test-result/test-result_{folder}.docx"
-            os.remove(test_result_file_name) if os.path.exists(test_result_file_name) else None
-            yield test_input_docx_filename, test_input_xlsx_filename, test_result_file_name
+        test_input_docx_filename = f"{test_data_folder}/{folder}/test.docx"
+        test_input_xlsx_filename = f"{test_data_folder}/{folder}/test.xlsx"
+        test_result_file_name = f"test-result/test-result_{folder}.docx"
+        yield test_input_docx_filename, test_input_xlsx_filename, test_result_file_name
 
 
 def test_merge():
@@ -32,4 +30,4 @@ def test_class():
 
 if __name__ == "__main__":
     test_merge()
-    # test_class()
+    test_class()
