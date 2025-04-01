@@ -1,32 +1,29 @@
-import sys
 import os
 
 import q2data2docx.q2data2docx as q2data2docx
 
+test_data_folder = "test-data/"
 
-test_data_folder = "test-data/test"
 
-
-def get_test_set(x):
-    test_input_docx_filename = f"{test_data_folder}{x:02}/test.docx"
-    test_input_xlsx_filename = f"{test_data_folder}{x:02}/test.xlsx"
-    test_result_file_name = f"test-result/test-result{x:02}.docx"
-    return test_input_docx_filename, test_input_xlsx_filename, test_result_file_name
+def get_test_set():
+    for folder in os.listdir(test_data_folder):
+        if folder:
+            test_input_docx_filename = f"{test_data_folder}/{folder}/test.docx"
+            test_input_xlsx_filename = f"{test_data_folder}/{folder}/test.xlsx"
+            test_result_file_name = f"test-result/test-result_{folder}.docx"
+            os.remove(test_result_file_name) if os.path.exists(test_result_file_name) else None
+            yield test_input_docx_filename, test_input_xlsx_filename, test_result_file_name
 
 
 def test_merge():
-    for x in range(1, 5):
-        test_input_docx_filename, test_input_xlsx_filename, test_result_file_name = get_test_set(x)
+    for test_input_docx_filename, test_input_xlsx_filename, test_result_file_name in get_test_set():
         result = q2data2docx.merge(test_input_docx_filename, test_input_xlsx_filename, test_result_file_name)
         assert result is True
 
 
 def test_class():
     d2d = q2data2docx.q2data2docx()
-
-    for x in range(1, 5):
-        test_input_docx_filename, test_input_xlsx_filename, test_result_file_name = get_test_set(x)
-
+    for test_input_docx_filename, test_input_xlsx_filename, test_result_file_name in get_test_set():
         assert d2d.loadDocxFile(test_input_docx_filename)
         assert d2d.loadXlsxFile(test_input_xlsx_filename)
         assert d2d.merge()
@@ -34,5 +31,5 @@ def test_class():
 
 
 if __name__ == "__main__":
-    # test_merge()
-    test_class()
+    test_merge()
+    # test_class()

@@ -721,7 +721,7 @@ class q2data2docx:
             return False
         if open_output_file:
             q2data2docx.open_document(fileOut)
-        return True
+        return fileOut
 
     @staticmethod
     def open_document(file_name):
@@ -746,20 +746,3 @@ class q2data2docx:
                 {"id": "3", "name": "alex", "address": "berlin"},
             ],
         }
-
-
-if __name__ == "__main__":
-    testSourceFolder = f"{os.path.dirname(__file__)}/../test-data/test01/"
-    testResultFolder = f"{os.path.dirname(__file__)}/../test-result"
-    result_file = os.path.abspath(f"{testResultFolder}/test-result.docx")
-    import time
-
-    t = time.time()
-    if merge(
-        f"{testSourceFolder}test.docx",
-        f"{testSourceFolder}test.xlsx",
-        result_file,
-    ):
-        print(time.time() - t)
-        os.system(f"explorer {result_file}")
-        print("Ok")

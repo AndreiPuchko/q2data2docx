@@ -5,10 +5,7 @@ temp
 log
 build
 dist
-q2gui.ini
-*.sqlite
-q2apps.sqlite
 *.sh
 .vscode/*
 test-result/*
-test-data/*
+test-data/test*/*
