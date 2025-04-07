@@ -25,6 +25,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 from decimal import Decimal
 from datetime import datetime
 import logging
+from .excel_format import format_number
 
 BUILTIN_FORMATS = {
     0: "General",
@@ -107,23 +108,6 @@ def my_eval(compiledCode, rawCode, data_dict):
     except Exception as e:
         logging.warning(f"Evaluation error in expression '{rawCode}': {e}")
         return False
-
-
-def excelDataFormat(cellText, formatStr):
-    formatStr = formatStr.replace("yyyy", "%Y").replace("/", r".")
-    formatStr = formatStr.replace("mmm", "%b").replace("mm", "%m")
-    formatStr = formatStr.replace("ddd", "%d %A").replace("dd", "%d")
-    if "%d" not in formatStr:
-        formatStr = formatStr.replace("d", "%d")
-    if "%m" not in formatStr:
-        formatStr = formatStr.replace("m", "%m")
-
-    formatStr = formatStr.replace('"', "")
-
-    cellText = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + int(_num(cellText)) - 2).strftime(
-        formatStr
-    )
-    return cellText
 
 
 def merge(file1, file2, outputFile):
@@ -392,17 +376,8 @@ class q2data2docx:
         if re.match(r"0\.0*E\+00", formatStr):  # scientific
             ln = len(re.sub(r"0\.|E\+00", "", formatStr))
             cellText = ("{:.%sE}" % ln).format(_num(cellText))
-        elif "m" in formatStr and "y" in formatStr and "y" in formatStr:
-            cellText = excelDataFormat(cellText, formatStr)
-        elif re.match(r"m/d/yyyy", formatStr):
-            cellText = datetime.fromordinal(
-                datetime(1900, 1, 1).toordinal() + int(_num(cellText)) - 2
-            ).strftime("%m/%d/%Y")
-        elif re.match(r"0\.0*", formatStr):
-            cellText = ("{:.%sf}" % len(formatStr.split(".")[1])).format(_num(cellText))
-        elif formatStr == "#":
-            if "." in cellText:
-                cellText = (s := cellText.split("."))[0] + (f".{s[1]}" if _num(s[1]) else "")
+        else:
+            cellText = format_number(cellText, formatStr.replace("\\", ""))
 
         return cellText
 
