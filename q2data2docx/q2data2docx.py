@@ -231,7 +231,7 @@ class q2data2docx:
     def setXlsxSizeLimit(self, sizeLimit):
         self.xlsxSizeLimit = sizeLimit
 
-    def setКawFilterRowLimit(self, rawFilterRowLimit):
+    def setRawFilterRowLimit(self, rawFilterRowLimit):
         self.rawFilterRowLimit = rawFilterRowLimit
 
     def loadFile(self, fileName):
@@ -305,12 +305,28 @@ class q2data2docx:
                         for st in cell:
                             if not st.tag.endswith("}v"):
                                 continue
+                            # cell.attrib: r = Reference, s = Style Index, t = Cell Data Type
+                            # cel datatypes:
+                            #   b - boolean
+                            #   d - date in ISO8601 format
+                            #   e - error
+                            #   inlineStr - string that doesn't use the shared string table
+                            #   n - number
+                            #   s - shared string
+                            #   str - formula string
                             if cell.attrib.get("t", "") in ["s"]:  # in sharedStrings
                                 sheetRow[colLetter] = sharedStrings[int(st.text)]
                             else:
                                 if st.text:  # if any text
                                     sheetRow[colLetter] = st.text
                                     formatStr = numFmts.get(cellXfs.get(cell.attrib.get("s"), ""), "")
+                                    # Special case - numeric data w/o datatype and format - exported from GSheets
+                                    if (
+                                        formatStr == ""
+                                        and cell.attrib.get("t") is None
+                                        and re.match(r"^\d*\.*\d*$", sheetRow[colLetter])
+                                    ):
+                                        formatStr = "#"
                                     sheetRow[colLetter] = self.setNmFmt(sheetRow[colLetter], formatStr)
                         if sheetRow[colLetter] == "":
                             del sheetRow[colLetter]
@@ -372,6 +388,7 @@ class q2data2docx:
     def setNmFmt(self, cellText, formatStr):
         if formatStr not in self.usedFormatStrings:
             self.usedFormatStrings[formatStr] = cellText
+
         if re.match(r"0\.0*E\+00", formatStr):  # scientific
             ln = len(re.sub(r"0\.|E\+00", "", formatStr))
             cellText = ("{:.%sE}" % ln).format(_num(cellText))
@@ -383,6 +400,10 @@ class q2data2docx:
             ).strftime("%m/%d/%Y")
         elif re.match(r"0\.0*", formatStr):
             cellText = ("{:.%sf}" % len(formatStr.split(".")[1])).format(_num(cellText))
+        elif formatStr == "#":
+            if "." in cellText:
+                cellText = (s := cellText.split("."))[0] + (f".{s[1]}" if _num(s[1]) else "")
+
         return cellText
 
     # prepare json data
@@ -775,13 +796,3 @@ class q2data2docx:
             else:
                 opener = "open" if sys.platform == "darwin" else "xdg-open"
                 subprocess.Popen([opener, file_name], close_fds=True, shell=False)
-
-    def setTestData(self):
-        self.dataDic = {
-            "header": "Headet Text Example",
-            "data": [
-                {"id": "1", "name": "john", "address": "new york"},
-                {"id": "2", "name": "piter", "address": "paris"},
-                {"id": "3", "name": "alex", "address": "berlin"},
-            ],
-        }
