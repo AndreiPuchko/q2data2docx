@@ -305,12 +305,12 @@ class q2data2docx:
                                     sheetRow[colLetter] = st.text
                                     formatStr = numFmts.get(cellXfs.get(cell.attrib.get("s"), ""), "")
                                     # Special case - numeric data w/o datatype and format - exported from GSheets
-                                    if (
-                                        formatStr == ""
-                                        and cell.attrib.get("t") is None
-                                        and re.match(r"^\d*\.*\d*$", sheetRow[colLetter])
-                                    ):
-                                        formatStr = "#"
+                                    # if (
+                                    #     formatStr == ""
+                                    #     and cell.attrib.get("t") is None
+                                    #     and re.match(r"^\d*\.*\d*$", sheetRow[colLetter])
+                                    # ):
+                                    #     formatStr = "#"
                                     sheetRow[colLetter] = self.setNmFmt(sheetRow[colLetter], formatStr)
                         if sheetRow[colLetter] == "":
                             del sheetRow[colLetter]

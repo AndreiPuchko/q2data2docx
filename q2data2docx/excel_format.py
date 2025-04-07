@@ -112,6 +112,8 @@ def excel_datetime(excel_datestring, date_system=1900):
 
 
 def format_number(number_str: str, format_str: str) -> str:
+    if format_str == "":
+        format_str = "#"
     try:
         value = float(number_str)
     except ValueError:
