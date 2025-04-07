@@ -4,6 +4,16 @@ import q2data2docx.q2data2docx as q2data2docx
 
 test_data_folder = "test-data/"
 
+def setTestData(self):
+    self.dataDic = {
+        "header": "Headet Text Example",
+        "data": [
+            {"id": "1", "name": "john", "address": "new york"},
+            {"id": "2", "name": "piter", "address": "paris"},
+            {"id": "3", "name": "alex", "address": "berlin"},
+        ],
+    }
+
 
 def get_test_set():
     for folder in os.listdir(test_data_folder):

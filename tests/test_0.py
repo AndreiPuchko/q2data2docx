@@ -2,7 +2,7 @@ import os
 import time
 import q2data2docx.q2data2docx as q2data2docx
 
-test_data_folder = "test-data/test01/"
+test_data_folder = "test-data/test05/"
 
 
 def test_manual_merge():
@@ -25,6 +25,7 @@ def test_manual_merge():
     assert result_name
     assert os.path.exists(result_name)
     print(d2d.dataRowsCount, d2d.dataSectionCount)
+    print(d2d.usedFormatStrings)
 
 
 if __name__ == "__main__":
