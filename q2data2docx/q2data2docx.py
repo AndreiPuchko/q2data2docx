@@ -176,6 +176,7 @@ class q2data2docx:
 
         self.error = ""
         self.warning = ""
+        self.dataRowLimitWarning = ""
         self.xlsxBinary = None
         self.jsonBinary = None
         self.docxTemplateBinary = None
@@ -252,6 +253,7 @@ class q2data2docx:
         if not self.xlsxBinary:
             return
         self.dataRowsCount = 0
+        self.dataRowLimitWarning = ""
 
         memzip = BytesIO()
         memzip.write(self.xlsxBinary)
@@ -318,7 +320,8 @@ class q2data2docx:
                         self.dataDic[sheetName][rowNumber] = sheetRow
                         self.dataRowsCount += 1
                     if self.dataRowLimit and self.dataRowsCount > self.dataRowLimit:
-                        self.warning += f"Data row limit ({self.dataRowLimit}) exceeded.\n"
+                        if (w := f"Data row limit ({self.dataRowLimit}) exceeded.\n") not in self.warning:
+                            self.warning += w
                         break
 
     def extractSheetNames(self, xlsxZip):
@@ -504,7 +507,7 @@ class q2data2docx:
 
     def merge(self):
         self.error = ""
-        self.warning = ""
+        self.warning = self.dataRowLimitWarning
         self.dataSectionCount = 0
         dxDoc, dxBinary, docxZip = self.prepareDocxTemplate()
         if not dxDoc:
@@ -520,7 +523,8 @@ class q2data2docx:
             for y, docxRowXml_value in enumerate(docxRowXml):
                 self.dataSectionCount += 1
                 if self.dataSectionLimit and self.dataSectionCount > self.dataSectionLimit:
-                    self.warning +=f"Data section limit {self.dataSectionLimit} exceeded.\n"
+                    if (w := f"Data section limit ({self.dataSectionLimit}) exceeded.\n") not in self.warning:
+                        self.warning += w
                     break
                 tableTags2clean.append(docxRowXml_value["start_tag"])
                 tableTags2clean.append(docxRowXml_value["end_tag"])
@@ -704,7 +708,11 @@ class q2data2docx:
         rawFilterRow = tmpTPList[3]
         compiledFilterRow = None
         if len(rawFilterRow) > self.rawFilterRowLimit:
-            self.warning +=f"Filter row limit {rawFilterRow} exceeded.\n"
+            if (
+                w := f"Filter row lenght limit  ({self.rawFilterRowLimit}:{rawFilterRow}) exceeded.\n"
+            ) not in self.warning:
+                self.warning += w
+
             # logging.warning(f"Filter row is too long, skipped: ({rawFilterRow})")
         elif rawFilterRow:
             rawFilterRow = html.unescape(rawFilterRow)
