@@ -90,7 +90,6 @@ class DefDict(dict):
 def my_eval(compiledCode, rawCode, data_dict):
     data_dict["_num"] = _num
 
-    # data_dict = {key: value for key, value in data_dict.items() if key not in dir(__builtins__)}
     for key in data_dict:
         if key in dir(__builtins__):
             del data_dict[key]
@@ -102,7 +101,6 @@ def my_eval(compiledCode, rawCode, data_dict):
     ]:
         logging.warning(f"Whilelist rule broken:'{rawCode}'")
         return False
-
     try:
         return eval(compiledCode, data_dict)
     except Exception as e:
@@ -177,6 +175,7 @@ class q2data2docx:
     ):
 
         self.error = ""
+        self.warning = ""
         self.xlsxBinary = None
         self.jsonBinary = None
         self.docxTemplateBinary = None
@@ -243,7 +242,7 @@ class q2data2docx:
 
     def setXlsxBinary(self, xlsxBinary=None):
         if self.xlsxSizeLimit > 0 and (fileSize := len(xlsxBinary)) > self.xlsxSizeLimit:
-            raise ValueError(f"Daata file size limit exceeded: {fileSize} bytes > {self.xlsxSizeLimit}")
+            raise ValueError(f"Data file size limit exceeded: {fileSize} bytes > {self.xlsxSizeLimit}")
         self.jsonBinary = ""
         if xlsxBinary:
             self.xlsxBinary = xlsxBinary
@@ -319,6 +318,7 @@ class q2data2docx:
                         self.dataDic[sheetName][rowNumber] = sheetRow
                         self.dataRowsCount += 1
                     if self.dataRowLimit and self.dataRowsCount > self.dataRowLimit:
+                        self.warning += f"Data row limit ({self.dataRowLimit}) exceeded.\n"
                         break
 
     def extractSheetNames(self, xlsxZip):
@@ -503,6 +503,8 @@ class q2data2docx:
         return "".join(dxDocList), dxBinary, docxZip
 
     def merge(self):
+        self.error = ""
+        self.warning = ""
         self.dataSectionCount = 0
         dxDoc, dxBinary, docxZip = self.prepareDocxTemplate()
         if not dxDoc:
@@ -518,6 +520,7 @@ class q2data2docx:
             for y, docxRowXml_value in enumerate(docxRowXml):
                 self.dataSectionCount += 1
                 if self.dataSectionLimit and self.dataSectionCount > self.dataSectionLimit:
+                    self.warning +=f"Data section limit {self.dataSectionLimit} exceeded.\n"
                     break
                 tableTags2clean.append(docxRowXml_value["start_tag"])
                 tableTags2clean.append(docxRowXml_value["end_tag"])
@@ -701,7 +704,8 @@ class q2data2docx:
         rawFilterRow = tmpTPList[3]
         compiledFilterRow = None
         if len(rawFilterRow) > self.rawFilterRowLimit:
-            logging.warning(f"Filter row is too long, skipped: ({rawFilterRow})")
+            self.warning +=f"Filter row limit {rawFilterRow} exceeded.\n"
+            # logging.warning(f"Filter row is too long, skipped: ({rawFilterRow})")
         elif rawFilterRow:
             rawFilterRow = html.unescape(rawFilterRow)
             try:

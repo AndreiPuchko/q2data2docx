@@ -112,8 +112,8 @@ def excel_datetime(excel_datestring, date_system=1900):
 
 
 def format_number(number_str: str, format_str: str) -> str:
-    if format_str == "":
-        format_str = "#"
+    # if format_str == "":
+    #     format_str = "#"
     try:
         value = float(number_str)
     except ValueError:
@@ -171,15 +171,22 @@ def format_number(number_str: str, format_str: str) -> str:
 
     # Handle comma scaling
     comma_scale = 0
-    if "." in format_str:
-        int_fmt, dec_fmt = format_str.split(".")
-    else:
-        int_fmt, dec_fmt = format_str, ""
-
-    while format_str[-1 - comma_scale] == ",":
+    while format_str and format_str[-1 - comma_scale] == ",":
         comma_scale += 1
 
     value /= 1000**comma_scale
+    
+    if "." in format_str:
+        int_fmt, dec_fmt = format_str.split(".")
+    elif format_str in ("General", ""):
+        int_fmt = "#"
+        if value != round(value):
+            dec_fmt = "#" * len(str(value).split(".")[-1])
+        else:
+            dec_fmt = ""
+
+    else:
+        int_fmt, dec_fmt = format_str, ""
 
     # Count decimal digits to round
     num_decimals = len(dec_fmt.replace("?", "").replace("#", "").replace("0", ""))
