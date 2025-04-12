@@ -2,7 +2,7 @@ import os
 import time
 import q2data2docx.q2data2docx as q2data2docx
 
-test_data_folder = "test-data/test03"
+test_data_folder = "test-data/test07"
 
 
 def test_manual_merge():
@@ -13,7 +13,7 @@ def test_manual_merge():
     d2d = q2data2docx.q2data2docx()
 
     d2d.setDataRowLimit(0)
-    d2d.setDataSectionLimit(0)
+    d2d.setDataSectionLimit(2)
     d2d.setXlsxSizeLimit(0)
     d2d.setDocxSizeLimit(0)
 
@@ -26,6 +26,7 @@ def test_manual_merge():
     assert os.path.exists(result_name)
     print(d2d.dataRowsCount, d2d.dataSectionCount)
     print(d2d.usedFormatStrings)
+    print(d2d.warning)
 
 
 if __name__ == "__main__":

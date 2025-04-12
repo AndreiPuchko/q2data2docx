@@ -320,8 +320,10 @@ class q2data2docx:
                         self.dataDic[sheetName][rowNumber] = sheetRow
                         self.dataRowsCount += 1
                     if self.dataRowLimit and self.dataRowsCount > self.dataRowLimit:
-                        if (w := f"Data row limit ({self.dataRowLimit}) exceeded.\n") not in self.warning:
-                            self.warning += w
+                        if (
+                            w := f"Data row limit ({self.dataRowLimit}) exceeded."
+                        ) not in self.dataRowLimitWarning:
+                            self.dataRowLimitWarning += ("\n" if self.dataRowLimitWarning else "") + w
                         break
 
     def extractSheetNames(self, xlsxZip):
@@ -522,13 +524,13 @@ class q2data2docx:
             docxRows = []
             for y, docxRowXml_value in enumerate(docxRowXml):
                 self.dataSectionCount += 1
-                if self.dataSectionLimit and self.dataSectionCount > self.dataSectionLimit:
-                    if (w := f"Data section limit ({self.dataSectionLimit}) exceeded.\n") not in self.warning:
-                        self.warning += w
-                    break
                 tableTags2clean.append(docxRowXml_value["start_tag"])
                 tableTags2clean.append(docxRowXml_value["end_tag"])
                 docxRows.append([])
+                if self.dataSectionLimit and self.dataSectionCount > self.dataSectionLimit:
+                    if (w := f"Data section limit ({self.dataSectionLimit}) exceeded.") not in self.warning:
+                        self.warning += ("\n" if self.warning else "") + w
+                    break
                 # process datatable rows
                 (
                     startRow,
@@ -709,9 +711,9 @@ class q2data2docx:
         compiledFilterRow = None
         if len(rawFilterRow) > self.rawFilterRowLimit:
             if (
-                w := f"Filter row lenght limit  ({self.rawFilterRowLimit}:{rawFilterRow}) exceeded.\n"
+                w := f"Filter row lenght limit  ({self.rawFilterRowLimit}:{rawFilterRow}) exceeded."
             ) not in self.warning:
-                self.warning += w
+                self.warning += ("\n" if self.warning else "") + w
 
             # logging.warning(f"Filter row is too long, skipped: ({rawFilterRow})")
         elif rawFilterRow:
