@@ -203,8 +203,8 @@ def format_number(number_str: str, format_str: str) -> str:
     # Apply padding or stripping rules to integer part
     if "?" in int_fmt:
         int_part = int_part.rjust(len(int_fmt))
-    elif "0" in int_fmt:
-        int_part = int_part.zfill(len(int_fmt))
+    # elif "0" in int_fmt:
+    #     int_part = int_part.zfill(len(int_fmt))
 
     # Handle decimal part
     if dec_fmt:
