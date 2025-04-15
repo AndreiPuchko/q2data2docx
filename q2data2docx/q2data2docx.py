@@ -368,11 +368,13 @@ class q2data2docx:
         return sheetIdDic
 
     def check4char(self, row):
-        for x in row:
-            if "&" in row[x]:
-                row[x] = html.escape(row[x])
-            if "#" in row[x]:
-                row[x] = re_sharp.sub("&#x23;", row[x])
+        for key, value in row.items():
+            if value is None:
+                value = row[key] = ""
+            elif "&" in value:
+                row[key] = html.escape(value)
+            if "#" in value:
+                row[key] = re_sharp.sub("&#x23;", value)
 
     def setNmFmt(self, cellText, formatStr):
         if formatStr not in self.usedFormatStrings:
@@ -670,7 +672,7 @@ class q2data2docx:
 
     def getSnippetRow(self, xml, tableName):
         rez = []
-        table_pattern = r"#\s*" + tableName + r"(?!\.)"
+        table_pattern = r"(#\s*" + tableName + r"\s*\:+[^#]*#)|(#\s*" + tableName + r"\s*#)"
         while True:
             matches = list(re.finditer(table_pattern, xml))
             if len(matches) < 2:
