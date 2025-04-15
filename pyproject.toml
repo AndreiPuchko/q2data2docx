@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "q2data2docx"
-version = "0.1.22"
+version = "0.1.23"
 description = "Merging data (XLSX, JSON) and template (DOCX) into resulting DOCX document"
 authors = ["Andrei Puchko <andrei.puchko@gmx.de>"]
 readme = "README.md"
