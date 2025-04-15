@@ -2,7 +2,10 @@ from q2data2docx.excel_format import format_number
 import importlib
 
 def test_1():
+    # print(format_number("794949768.00", "#,##0.00"))
     res = [
+        (format_number("768.00", "#,##0.00") == "768.00"),  # 1
+        (format_number("1008.00", "#,##0.00") == "1,008.00"),  # 1
         (format_number("1234.59", "#") == "1235"),  # 1
         (format_number("1234.59", "####.#") == "1234.6"),  # 1
         (format_number("8.9", "#.000") == "8.900"),  # 2
@@ -42,6 +45,7 @@ def test_1():
     assert sum([1 if x else 0 for x in res]) == len(res)
 
 if __name__ == "__main__":
+    import glob
     for x in [x for x in glob.glob("*.py") if x != "test.py"]:
         mod = importlib.import_module(x.removesuffix(".py"))
         format_number = getattr(mod, "format_number")

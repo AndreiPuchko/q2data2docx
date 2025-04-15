@@ -13,7 +13,7 @@ def test_manual_merge():
     d2d = q2data2docx.q2data2docx()
 
     d2d.setDataRowLimit(0)
-    d2d.setDataSectionLimit(2)
+    d2d.setDataSectionLimit(0)
     d2d.setXlsxSizeLimit(0)
     d2d.setDocxSizeLimit(0)
 
