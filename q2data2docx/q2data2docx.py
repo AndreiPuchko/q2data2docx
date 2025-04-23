@@ -615,12 +615,13 @@ class q2data2docx:
                 parXml = dxDoc[parStart : parEnd + 6]
                 xmlns = "".join(
                     [
-                        f"""xmlns:{x}="{x}{x}" """
-                        for x in {
+                        f"""xmlns:{y}="{y}{y}" """
+                        for y in {
                             x.translate("".maketrans("", "", "</: "))
                             for x in re.findall(r"\W(\w*):", parXml)
                             if x != "xml" and x != ""
                         }
+                        if y != "xmlns"
                     ]
                 )
                 gg = ET.fromstring(f"""<r {xmlns}>{parXml}</r>""")
