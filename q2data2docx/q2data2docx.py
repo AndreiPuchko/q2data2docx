@@ -570,7 +570,7 @@ class q2data2docx:
 
                     docxRows[y].append(tmpDocxXml)
             for z, value in enumerate(docxRowXml):
-                if docxRows:
+                if docxRows and z < len(docxRows):
                     dxDoc = dxDoc.replace(value["snippet"], "".join(docxRows[z]))
         # processing non table data
         for dataKey, dataValue in self.dataDic.items():
