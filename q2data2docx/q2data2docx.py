@@ -313,6 +313,8 @@ class q2data2docx:
                                     # ):
                                     #     formatStr = "#"
                                     sheetRow[colLetter] = self.setNmFmt(sheetRow[colLetter], formatStr)
+                                else:
+                                    sheetRow[colLetter] = ""
                         if sheetRow[colLetter] == "":
                             del sheetRow[colLetter]
                     if sheetRow != {}:
