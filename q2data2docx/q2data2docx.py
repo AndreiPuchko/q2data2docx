@@ -163,6 +163,73 @@ def remove_hash_fragments(text):
     return "".join(result)
 
 
+def compare_table_definitions(tbl1: str, tbl2: str, max_diff: int = 25) -> bool:
+    # Extract w:tblW values
+    def get_tblW(text):
+        match = re.search(r'<w:tblW[^>]*w:w="(-?\d+)"', text)
+        return int(match.group(1)) if match else None
+
+    # Extract list of gridCol values
+    def get_gridCols(text):
+        return [int(w) for w in re.findall(r'<w:gridCol[^>]*w:w="(\d+)"', text)]
+
+    # Clean text: remove tblW and gridCol lines to compare the rest
+    def clean_text(text):
+        text = re.sub(r'<w:tblW[^>]*w:w="[^"]+"[^>]*/>', "", text)
+        text = re.sub(r'<w:gridCol[^>]*w:w="[^"]+"[^>]*/>', "", text)
+        return text.strip()
+
+    tblW1 = get_tblW(tbl1)
+    tblW2 = get_tblW(tbl2)
+
+    if tblW1 is None or tblW2 is None:
+        return False
+    if abs(tblW1 - tblW2) > max_diff:
+        return False
+
+    grid1 = get_gridCols(tbl1)
+    grid2 = get_gridCols(tbl2)
+
+    if len(grid1) != len(grid2):
+        return False
+    if any(abs(a - b) > max_diff for a, b in zip(grid1, grid2)):
+        return False
+
+    if clean_text(tbl1) != clean_text(tbl2):
+        return False
+
+    return True
+
+
+def cut_table_defs(word_xml):
+    spl = re.split(r"(<w:tbl>|</w:tbl>)", word_xml)
+    levels = 0
+    levels_tbl = {}
+    rez = []
+    for index, value in enumerate(spl):
+        if value.strip():
+            if value == "<w:tbl>":
+                if spl[index + 2] == "</w:tbl>":  # not table in table
+                    if "<w:tr>" in spl[index + 1]:
+                        tr_start_index = spl[index + 1].index("<w:tr>")
+                        tbl_defs = spl[index + 1][:tr_start_index].replace(" ", "").replace("\n", "")
+                        if levels not in levels_tbl:
+                            levels_tbl[levels] = tbl_defs
+                        else:
+                            # if levels_tbl[levels] != tbl_defs:  # New table
+                            if not compare_table_definitions(levels_tbl[levels], tbl_defs):  # New table
+                                levels_tbl[levels] = tbl_defs
+                            else:  # cut table defs
+                                if rez[-1] == "</w:tbl>":
+                                    rez.pop()
+                                    spl[index + 1] = spl[index + 1][tr_start_index - 1 :]
+                                    continue
+                else:  # table in table
+                    levels += 1
+            rez.append(value)
+    return "".join(rez)
+
+
 class q2data2docx:
     def __init__(
         self,
@@ -658,6 +725,9 @@ class q2data2docx:
         if "</w:tbl></w:tc>" in dxDoc:  # fix last row at the end of docs
             dxDoc = dxDoc.replace("</w:tbl></w:tc>", """</w:tbl><w:p></w:p></w:tc>""")
         dxDoc = dxDoc.replace("\n", "")
+
+        dxDoc = cut_table_defs(dxDoc)
+
         # put back binary data
         for x, value in enumerate(dxBinary):
             dxDoc = dxDoc.replace(f"<@{x}@>", value)
