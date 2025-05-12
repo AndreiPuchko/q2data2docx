@@ -102,7 +102,10 @@ def my_eval(compiledCode, rawCode, data_dict):
         logging.warning(f"Whilelist rule broken:'{rawCode}'")
         return False
     try:
-        return eval(compiledCode, data_dict)
+        result = eval(compiledCode, data_dict)
+        del data_dict["__builtins__"]
+        del data_dict["_num"]
+        return result
     except Exception as e:
         logging.warning(f"Evaluation error in expression '{rawCode}': {e}")
         return False
@@ -727,6 +730,7 @@ class q2data2docx:
         dxDoc = dxDoc.replace("\n", "")
 
         dxDoc = cut_table_defs(dxDoc)
+        dxDoc = dxDoc.replace("&x23;", "#")
 
         # put back binary data
         for x, value in enumerate(dxBinary):
