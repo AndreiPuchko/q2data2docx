@@ -210,8 +210,8 @@ def cut_table_defs(word_xml):
         if value.strip():
             if value == "<w:tbl>":
                 if spl[index + 2] == "</w:tbl>":  # not table in table
-                    if "<w:tr>" in spl[index + 1]:
-                        tr_start_index = spl[index + 1].index("<w:tr>")
+                    if "<w:tr" in spl[index + 1]:
+                        tr_start_index = spl[index + 1].index("<w:tr")
                         tbl_defs = spl[index + 1][:tr_start_index].replace(" ", "").replace("\n", "")
                         if levels not in levels_tbl:
                             levels_tbl[levels] = tbl_defs
