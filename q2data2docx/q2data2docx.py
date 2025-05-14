@@ -638,7 +638,8 @@ class q2data2docx:
                     tmpDocxXml = docxRowXml_value["snippet"]
                     # process datatable column:  x:column name
                     for columnName in docDataField:
-                        tmpDocxXml = tmpDocxXml.replace(columnName, row[columnName.replace("#", "").strip()])
+                        if columnValue := row.get(columnName.replace("#", "").strip(), ""):
+                            tmpDocxXml = tmpDocxXml.replace(columnName, columnValue)
 
                     docxRows[y].append(tmpDocxXml)
             for z, value in enumerate(docxRowXml):
