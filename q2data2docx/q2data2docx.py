@@ -620,7 +620,8 @@ class q2data2docx:
                         len(docxRowXml_value["start_tag"]) : -len(docxRowXml_value["end_tag"])
                     ]
                 )
-
+                if len(self.dataDic[tableName]) == 0:  # got empty sheet
+                    continue
                 for rowCount in range(1, max(self.dataDic[tableName]) + 1):
                     if startRow and rowCount < startRow or rowCount == columnNamesRow:
                         continue
