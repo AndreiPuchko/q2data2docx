@@ -485,7 +485,7 @@ class q2data2docx:
     def extractSharedString(self, xlsxZip):
         strings = xlsxZip.open("xl/sharedStrings.xml").read()
         sharedStrings = []
-        for child in re.findall(r"<si>(.*?)</si>", strings.decode("utf8")):
+        for child in re.findall(r"<si>(.*?)</si>", strings.decode("utf8"), re.DOTALL):
             if child.startswith("<t"):
                 sharedStrings.append(ET.fromstring(child).text)
             else:
