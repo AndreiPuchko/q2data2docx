@@ -1,0 +1,1 @@
+ c:; cd 'c:\Users\andre\Desktop\dev\q2\q2data2docx'; & 'C:\Users\andre\AppData\Local\pypoetry\Cache\virtualenvs\q2data2docx-9Z9UEKG4-py3.11\Scripts\python.exe' 'tests/test_0.py' 

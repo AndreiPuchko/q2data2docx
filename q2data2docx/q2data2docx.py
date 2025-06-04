@@ -73,6 +73,12 @@ FIRST_SHEET_CELLS_LIMIT = 500
 WHITE_LIST = ["abs", "min", "max", "len", "round"]
 
 
+NS_SPREADSHEET = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+NS_WORD = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+
+ET.register_namespace("w", NS_WORD)
+
+
 def _num(t):
     try:
         return Decimal(f"{t}")
@@ -231,6 +237,62 @@ def cut_table_defs(word_xml):
                     levels += 1
             rez.append(value)
     return "".join(rez)
+
+
+def convert_r_to_word_r(spreadsheetml_input):
+    root = ET.fromstring(f'<root xmlns="{NS_SPREADSHEET}">{spreadsheetml_input}</root>')
+    r_elements = root.findall(f"{{{NS_SPREADSHEET}}}r")
+    w_p = ET.Element(f"{{{NS_WORD}}}p")
+    for r_element in r_elements:
+        w_r = ET.Element(f"{{{NS_WORD}}}r")
+
+        # Create run properties
+        rPr_src = r_element.find(f"{{{NS_SPREADSHEET}}}rPr")
+        if rPr_src is not None:
+            w_rPr = ET.SubElement(w_r, f"{{{NS_WORD}}}rPr")
+
+            # Font size
+            sz = rPr_src.find(f"{{{NS_SPREADSHEET}}}sz")
+            if sz is not None:
+                val = int(sz.attrib["val"]) * 2  # Word uses half-points
+                ET.SubElement(w_rPr, f"{{{NS_WORD}}}sz", {"w:val": str(val)})
+
+            # Font
+            rFont = rPr_src.find(f"{{{NS_SPREADSHEET}}}rFont")
+            if rFont is not None:
+                font_val = rFont.attrib["val"]
+                ET.SubElement(w_rPr, f"{{{NS_WORD}}}rFonts", {"w:ascii": font_val})
+
+            # Color (remove FF alpha)
+            color = rPr_src.find(f"{{{NS_SPREADSHEET}}}color")
+            if color is not None:
+                rgb = color.attrib["rgb"]
+                if rgb.startswith("FF"):
+                    rgb = rgb[2:]
+                ET.SubElement(w_rPr, f"{{{NS_WORD}}}color", {"w:val": rgb})
+
+        # Text content
+        t = r_element.find(f"{{{NS_SPREADSHEET}}}t")
+        if t is not None:
+            w_t = ET.SubElement(w_r, f"{{{NS_WORD}}}t")
+            w_t.set("xml:space", "preserve")
+            w_t.text = t.text
+        w_p.append(w_r)
+
+    word_xml = ET.tostring(w_p, encoding="unicode")
+    return "".join([f"<w:r>{x}</w:r>" for x in re.findall(r"<w:r>(.*?)</w:r>", word_xml)])
+
+
+def get_rich_text_tags(xml_part, tag):
+    res = []
+    for match in re.finditer(tag, xml_part):
+        start_position = match.start()
+        end_position = match.end()
+        r_start = xml_part[:start_position].rfind("<w:r>")
+        r_end = xml_part[end_position:].find("</w:r>") + end_position + 6
+        if (s := xml_part[r_start:r_end]) not in res:
+            res.append(s)
+    return res
 
 
 class q2data2docx:
@@ -421,10 +483,13 @@ class q2data2docx:
         return cellXfs, numFmts
 
     def extractSharedString(self, xlsxZip):
+        strings = xlsxZip.open("xl/sharedStrings.xml").read()
         sharedStrings = []
-        for child in ET.fromstring(xlsxZip.open("xl/sharedStrings.xml").read()):
-            for si in child:
-                sharedStrings.append(si.text)
+        for child in re.findall(r"<si>(.*?)</si>", strings.decode("utf8")):
+            if child.startswith("<t"):
+                sharedStrings.append(ET.fromstring(child).text)
+            else:
+                sharedStrings.append(convert_r_to_word_r(child))
         return sharedStrings
 
     def extractSheets(self, xlsxZip):
@@ -640,7 +705,13 @@ class q2data2docx:
                     # process datatable column:  x:column name
                     for columnName in docDataField:
                         if columnValue := row.get(columnName.replace("#", "").strip(), ""):
-                            tmpDocxXml = tmpDocxXml.replace(columnName, columnValue)
+                            if "\n" in columnValue:  # preserve new line
+                                columnValue = columnValue.replace("\n", "</w:t><w:br/><w:t>")
+                            if columnValue.startswith("<w:r>"):
+                                for tag in get_rich_text_tags(tmpDocxXml, columnName):
+                                    tmpDocxXml = tmpDocxXml.replace(tag, columnValue)
+                            else:
+                                tmpDocxXml = tmpDocxXml.replace(columnName, columnValue)
 
                     docxRows[y].append(tmpDocxXml)
             for z, value in enumerate(docxRowXml):
