@@ -508,7 +508,11 @@ class q2data2docx:
         for key, value in row.items():
             if value is None:
                 value = row[key] = ""
+            elif value.startswith("<w:r>"):
+                continue
             elif "&" in value:
+                row[key] = html.escape(value)
+            elif "<" in value:
                 row[key] = html.escape(value)
             if "#" in value:
                 row[key] = re_sharp.sub("&#x23;", value)
