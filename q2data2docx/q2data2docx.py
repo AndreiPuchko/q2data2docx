@@ -254,7 +254,7 @@ def convert_r_to_word_r(spreadsheetml_input):
             # Font size
             sz = rPr_src.find(f"{{{NS_SPREADSHEET}}}sz")
             if sz is not None:
-                val = int(sz.attrib["val"]) * 2  # Word uses half-points
+                val = int(_num(sz.attrib["val"])) * 2  # Word uses half-points
                 ET.SubElement(w_rPr, f"{{{NS_WORD}}}sz", {"w:val": str(val)})
 
             # Font
@@ -280,7 +280,7 @@ def convert_r_to_word_r(spreadsheetml_input):
         w_p.append(w_r)
 
     word_xml = ET.tostring(w_p, encoding="unicode")
-    return "".join([f"<w:r>{x}</w:r>" for x in re.findall(r"<w:r>(.*?)</w:r>", word_xml)])
+    return "".join([f"<w:r>{x}</w:r>" for x in re.findall(r"<w:r>(.*?)</w:r>", word_xml, re.DOTALL)])
 
 
 def get_rich_text_tags(xml_part, tag):
@@ -288,7 +288,12 @@ def get_rich_text_tags(xml_part, tag):
     for match in re.finditer(tag, xml_part):
         start_position = match.start()
         end_position = match.end()
-        r_start = xml_part[:start_position].rfind("<w:r>")
+        while True:
+            r_start = xml_part[:start_position].rfind("<w:r")
+            if xml_part[r_start + 4] in [" ", ">"]:
+                break
+            else:
+                start_position = r_start - 1
         r_end = xml_part[end_position:].find("</w:r>") + end_position + 6
         if (s := xml_part[r_start:r_end]) not in res:
             res.append(s)
@@ -709,11 +714,9 @@ class q2data2docx:
                     # process datatable column:  x:column name
                     for columnName in docDataField:
                         if columnValue := row.get(columnName.replace("#", "").strip(), ""):
-                            if "\n" in columnValue:  # preserve new line
-                                columnValue = columnValue.replace("\n", "</w:t><w:br/><w:t>")
+                            columnValue = self.preserve_new_line(columnValue)
                             if columnValue.startswith("<w:r>"):
-                                for tag in get_rich_text_tags(tmpDocxXml, columnName):
-                                    tmpDocxXml = tmpDocxXml.replace(tag, columnValue)
+                                tmpDocxXml = self.process_rich_text(tmpDocxXml, columnName, columnValue)
                             else:
                                 tmpDocxXml = tmpDocxXml.replace(columnName, columnValue)
 
@@ -725,12 +728,16 @@ class q2data2docx:
         for dataKey, dataValue in self.dataDic.items():
             if dataKey == "":
                 continue
+            dataValue = self.preserve_new_line(dataValue)
             if not isinstance(self.dataDic[dataKey], dict):
-                dxDoc = re.sub(
-                    get_re_pattern(dataKey),
-                    dataValue,
-                    dxDoc,
-                )
+                if dataValue.startswith("<w:r>"):
+                    dxDoc = self.process_rich_text(dxDoc, dataKey, dataValue)
+                else:
+                    dxDoc = re.sub(
+                        get_re_pattern(dataKey),
+                        dataValue,
+                        dxDoc,
+                    )
         # process first sheet as non table data
         first_sheet = self.dataDic[list(self.dataDic.keys())[0]]
         if isinstance(first_sheet, dict):
@@ -742,8 +749,12 @@ class q2data2docx:
             for cell_key, cell_value in {
                 k: data_sheet[k] for k in list(data_sheet)[:FIRST_SHEET_CELLS_LIMIT]
             }.items():
+                cell_value = self.preserve_new_line(cell_value)
                 if not isinstance(cell_value, dict):
-                    dxDoc = dxDoc.replace(f"#{cell_key}#", cell_value)
+                    if cell_value.startswith("<w:r>"):
+                        dxDoc = self.process_rich_text(dxDoc, f"#{cell_key}#", cell_value)
+                    else:
+                        dxDoc = dxDoc.replace(f"#{cell_key}#", cell_value)
         # remove datatables tags first
         # replace table names to #@#
         for x in tableTags2clean:
@@ -789,11 +800,15 @@ class q2data2docx:
             for x in re.findall(r"#\s*(\w*)\.([a-zA-Z]*)(\d*)\s*#", y):
                 colRowData = self.dataDic.get(x[0], {}).get(int(_num(x[2])), {}).get(x[1], "")
                 if colRowData:
-                    dxDoc = re.sub(
-                        get_re_pattern(x[0] + r"\s*" + "." + r"\s*" + x[1] + r"\s*" + x[2]),
-                        colRowData,
-                        dxDoc,
-                    )
+                    colRowData = self.preserve_new_line(colRowData)
+                    if colRowData.startswith("<w:r>"):
+                        dxDoc = self.process_rich_text(dxDoc, f"#{x[0]}.{x[1]}{x[2]}#", colRowData)
+                    else:
+                        dxDoc = re.sub(
+                            get_re_pattern(x[0] + r"\s*" + "." + r"\s*" + x[1] + r"\s*" + x[2]),
+                            colRowData,
+                            dxDoc,
+                        )
 
         # remove other unused tags
         dxDoc = dxDoc.replace("##", "")
@@ -823,6 +838,20 @@ class q2data2docx:
         newZip.close()
         self.docxResultBinary = outmemzip.getvalue()
         return True
+
+    def process_rich_text(self, tmpDocxXml, columnName, columnValue):
+        while match := re.search(columnName, tmpDocxXml):
+            start_position = match.start()
+            end_position = match.end()
+            r_end = tmpDocxXml[end_position:].find("</w:t>") + end_position + 6
+            tmpDocxXml = tmpDocxXml[:r_end] + columnValue[-6:] + columnValue[:-6] + tmpDocxXml[r_end:]
+            tmpDocxXml = tmpDocxXml[:start_position] + tmpDocxXml[end_position:]
+        return tmpDocxXml
+
+    def preserve_new_line(self, columnValue):
+        if "\n" in columnValue:  # preserve new line
+            columnValue = columnValue.replace("\n", "</w:t><w:br/><w:t>")
+        return columnValue
 
     def getSnippetRow(self, xml, tableName):
         rez = []
