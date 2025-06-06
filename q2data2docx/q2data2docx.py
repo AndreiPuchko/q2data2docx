@@ -139,7 +139,7 @@ def get_re_pattern(text):
     return r"#\s*" + text + r"\s*#"
 
 
-re_search_html_char = re.compile(r"^x\d+;")
+re_search_html_char = re.compile(r"^x[\dABCDEF]+;")
 re_sharp = re.compile(r"#(?!(?:(?!&#x).)*;)")
 re_get_keys = re.compile(r"#[^#]+#")
 
@@ -151,19 +151,21 @@ def remove_hash_fragments(text):
     for index, value in enumerate(splited_text):
         if index == 0:
             result.append(value)
+        elif cutted and index < len(splited_text) - 1:
+            result.append(value)
+            if splited_text[index + 1][-1] == "&":
+                result.append("#")
+        elif value[:2] == "ff" and splited_text[index - 1][-1] == '"':
+            result.append("#" + value)
+        elif re_search_html_char.search(value) and splited_text[index - 1][-1] == "&":
+            result.append("#" + value)
+        elif index < len(splited_text) - 1 and re_search_html_char.search(splited_text[index + 1]) and value[-1] == "&":
+            result.append(value)
         elif index == len(splited_text) - 1:
             if value == "":
                 result.append("#")
             else:
                 result.append(value)
-        elif cutted:
-            result.append(value)
-            if splited_text[index + 1][-1] == "&":
-                result.append("#")
-        elif re_search_html_char.search(value) and splited_text[index - 1][-1] == "&":
-            result.append("#" + value)
-        elif value[-1] == "&" and re_search_html_char.search(splited_text[index + 1]):
-            result.append(value)
         else:
             cutted = True
             continue
@@ -266,10 +268,10 @@ def convert_r_to_word_r(spreadsheetml_input):
             # Color (remove FF alpha)
             color = rPr_src.find(f"{{{NS_SPREADSHEET}}}color")
             if color is not None:
-                rgb = color.attrib["rgb"]
-                if rgb.startswith("FF"):
-                    rgb = rgb[2:]
-                ET.SubElement(w_rPr, f"{{{NS_WORD}}}color", {"w:val": rgb})
+                if rgb := color.attrib.get("rgb"):
+                    if rgb.startswith("FF"):
+                        rgb = rgb[2:]
+                    ET.SubElement(w_rPr, f"{{{NS_WORD}}}color", {"w:val": rgb})
 
         # Text content
         t = r_element.find(f"{{{NS_SPREADSHEET}}}t")
